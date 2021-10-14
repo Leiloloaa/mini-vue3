@@ -1,31 +1,3 @@
-# my-miniVue
-
-> 实现Vue3核心逻辑
-
-## 初步实现 effect 中的 track 和 trigger
-
-```ts
-// effect.spec.ts
-it('effect', () => {
-    // reactive 核心
-    // get 收集依赖
-    // set 触发依赖
-    const user = reactive({
-      age: 10
-    })
-
-    let nextAge
-    effect(() => {
-      nextAge = user.age + 1
-    })
-    expect(nextAge).toBe(11)
-
-    // update
-    user.age++
-    expect(nextAge).toBe(12)
-});
-
-// effect.ts
 let activeEffect
 export class ActiveEffect {
   private _fn: any
@@ -74,4 +46,3 @@ export function effect(fn) {
   const _effect = new ActiveEffect(fn)
   _effect.run()
 }
-```
