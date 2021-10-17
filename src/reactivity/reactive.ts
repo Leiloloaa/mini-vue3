@@ -16,7 +16,6 @@ export function reactive(raw) {
       // 返回 true 代表属性设置成功。
       // 在严格模式下，如果 set() 方法返回 false，那么会抛出一个 TypeError 异常。
       const res = Reflect.set(target, key, value)
-      console.log(target, key, value);
       trigger(target, key)
       return res
     }
