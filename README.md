@@ -226,3 +226,31 @@ function cleanupEffect(effect) {
 }
 ```
 
+## 优化 stop 功能（边缘 case）
+
+**思考**
+
+```js
+it('stop', () => {
+    let dummy
+    const obj = reactive({ prop: 1 })
+    const runner = effect(() => {
+      dummy = obj.prop
+    })
+    obj.prop = 2
+    expect(dummy).toBe(2)
+    stop(runner)
+    // obj.prop = 3
+    // obj.prop = obj.prop + 1
+    // 先触发 get 操作 再触发 set 操作
+    // get 操作 会重新收集依赖
+    obj.prop++
+    expect(dummy).toBe(2)
+
+    // stopped effect should still be manually callable
+    runner()
+    expect(dummy).toBe(3)
+})  
+```
+
+## 实现 readonly、shallowReadonly、isReadonly、isReactive 和 isProxy

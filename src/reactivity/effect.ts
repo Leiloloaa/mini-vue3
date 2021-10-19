@@ -1,6 +1,7 @@
 import { extend } from "../shared"
 
 let activeEffect
+let shouldTrack = false
 class ReactiveEffect {
   private _fn: any
   deps = []
@@ -12,8 +13,26 @@ class ReactiveEffect {
     this.scheduler = scheduler
   }
   run() {
+    // 会收集依赖
+    // shouldTrack 来区分
+
+    // 如果是 stop 的状态
+    // 就不收集
+    if (!this.active) {
+      return this._fn()
+    }
+
+    // 否则收集
+    shouldTrack = true
     activeEffect = this
-    return this._fn()
+
+    const result = this._fn()
+
+    // reset 因为是全局变量
+    // 处理完要还原
+    shouldTrack = false
+
+    return result
   }
   stop() {
     // 性能问题
@@ -32,10 +51,13 @@ function cleanupEffect(effect) {
   effect.deps.forEach((dep: any) => {
     dep.delete(effect)
   });
+  effect.deps.length = 0
 }
 
 const targetsMap = new Map()
 export function track(target, key) {
+  if (!isTracking()) return
+
   // 收集依赖
   // reactive 传入的是一个对象 {}
   // 收集关系： targetsMap 收集所有依赖 然后 每一个 {} 作为一个 depsMap
@@ -54,7 +76,15 @@ export function track(target, key) {
 
   // 如果是单纯的获取 就不会有 activeEffect
   // 因为 activeEffect 是在 effect.run 执行的时候 才会存在
-  if (!activeEffect) return
+  // if (!activeEffect) return
+
+  // 应该收集依赖
+  // !! 思考 什么时候被赋值呢？
+  // 触发 set 执行 fn 然后再触发 get 
+  // 所以在 run 方法中
+  // if (!shouldTrack) return
+
+  if (dep.has(activeEffect)) return
 
   // 要存入的是一个 fn
   // 所以要利用一个全局变量
@@ -63,6 +93,10 @@ export function track(target, key) {
   // 如何通过当前的 effect 去找到 deps？
   // 反向收集 deps
   activeEffect.deps.push(dep)
+}
+
+function isTracking() {
+  return shouldTrack && activeEffect !== undefined
 }
 
 export function trigger(target, key) {
