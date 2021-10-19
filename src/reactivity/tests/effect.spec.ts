@@ -77,9 +77,14 @@ describe('effect', () => {
     obj.prop = 2
     expect(dummy).toBe(2)
     stop(runner)
-    obj.prop = 3
+    // 现做了 get 操作 然后再做的 set 操作
+    // 涉及到 get 操作 就会重新去收集依赖
+    // todo 为什么 get 会自动去收集 runner
+    // obj.prop = obj.prop + 1
+    obj.prop++
+    // 下面只做 set 操作
+    // obj.prop = 3
     expect(dummy).toBe(2)
-
     // stopped effect should still be manually callable
     runner()
     expect(dummy).toBe(3)

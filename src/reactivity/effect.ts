@@ -1,6 +1,8 @@
 import { extend } from "../shared"
 
 let activeEffect
+let shouldTrack = false; // 是否应该收集
+
 class ReactiveEffect {
   private _fn: any
   deps = []
@@ -12,8 +14,21 @@ class ReactiveEffect {
     this.scheduler = scheduler
   }
   run() {
+    // 如果 active 为 false 
+    // 那么 就已经 stop 了
+    // 否则就应该收集 activeEffect
+    if (!this.active) {
+      return this._fn()
+    }
+    shouldTrack = true
     activeEffect = this
-    return this._fn()
+    const r = this._fn()
+
+    // todo 为什么要重置？
+    // 第一次收集完后，就不用再收集了
+    // 重置
+    shouldTrack = false
+    return r
   }
   stop() {
     // 性能问题
@@ -32,10 +47,14 @@ function cleanupEffect(effect) {
   effect.deps.forEach((dep: any) => {
     dep.delete(effect)
   });
+
+  // 把 effect.deps 清空
+  effect.deps.length = 0;
 }
 
 const targetsMap = new Map()
 export function track(target, key) {
+  if (!isTracking()) return;
   // 收集依赖
   // reactive 传入的是一个对象 {}
   // 收集关系： targetsMap 收集所有依赖 然后 每一个 {} 作为一个 depsMap
@@ -55,6 +74,10 @@ export function track(target, key) {
   // 如果是单纯的获取 就不会有 activeEffect
   // 因为 activeEffect 是在 effect.run 执行的时候 才会存在
   if (!activeEffect) return
+  // if (!shouldTrack) return
+
+  // 如果 dep 存在 就不会收集
+  if (dep.has(activeEffect)) return
 
   // 要存入的是一个 fn
   // 所以要利用一个全局变量
@@ -63,6 +86,10 @@ export function track(target, key) {
   // 如何通过当前的 effect 去找到 deps？
   // 反向收集 deps
   activeEffect.deps.push(dep)
+}
+
+function isTracking() {
+  return shouldTrack && activeEffect !== undefined;
 }
 
 export function trigger(target, key) {
