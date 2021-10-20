@@ -226,3 +226,80 @@ function cleanupEffect(effect) {
 }
 ```
 
+
+
+
+
+
+## 总结一些判断函数
+
+- isReactive
+- isReadonly
+- isProxy
+- isRef
+- unRef
+
+## isReactive
+
+> 判断是否是 isReactive 响应式对象
+
+```js
+export function isReactive(value) {
+  // !! 感叹号 可以去除 undefined 的情况
+  return !!value[ReactiveFlags.IS_REACTIVE]
+}
+```
+
+- 只需要调用 value 的 get 方法，如果是响应式变量，那么返回一个 true；
+- 如果不是 响应式变量，那么 value 身上就没有 ReactiveFlags.IS_REACTIVE 这个属性，就会使 undefined
+  - 使用 !! 双感叹号转换
+
+### isReadonly
+
+> 判断是否是 readonly 只读属性
+
+```js
+export function isReadonly(value) {
+  return !!value[ReactiveFlags.IS_READONLY]
+}
+```
+
+原理同上，在 get 中返回 true
+
+### isProxy
+
+> 语法糖，内部还是靠前面两个实现的
+
+```js
+export function isProxy(value) {
+  return isReactive(value) || isReadonly(value)
+}
+```
+
+### isRef
+
+> 判断是否是 ref 响应式变量
+
+```js
+// 创建这个 实例 的时候，__v_isRef 为 true
+class RefImpl {
+  public __v_isRef = true
+}
+
+// 判断这个实例上 挂载的 __v_isRef 属性
+export function isRef(ref) {
+  return !!ref.__v_isRef
+}
+```
+
+### unRef
+
+> 语法糖
+
+```js
+export function unRef(ref) {
+  return isRef(ref) ? ref.value : ref
+}
+```
+
+如果是 ref 类型，那么就返回 value 值，否则返回本身
