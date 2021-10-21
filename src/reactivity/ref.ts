@@ -54,6 +54,8 @@ export function unRef(ref) {
 }
 
 // 代理对象的属性 是 ref
+// proxyRefs 是帮我们在 template 中做了 ref 的拆箱处理
+// 不用加上 .value 内部使用了 unRef 语法糖
 export function proxyRefs(objectWithRefs) {
   return new Proxy(objectWithRefs, {
     get(target, key) {
@@ -61,6 +63,7 @@ export function proxyRefs(objectWithRefs) {
       return unRef(Reflect.get(target, key))
     },
     set(target, key, value) {
+      // 这个属性是 ref 并且新值不是 ref
       if (isRef(target[key]) && !isRef(value)) {
         return (target[key].value = value)
       } else {

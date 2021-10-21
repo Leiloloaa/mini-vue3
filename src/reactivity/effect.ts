@@ -3,7 +3,7 @@ import { extend } from "../shared"
 let activeEffect
 let shouldTrack = false; // 是否应该收集
 
-class ReactiveEffect {
+export class ReactiveEffect {
   private _fn: any
   deps = []
   scheduler: Function | undefined
