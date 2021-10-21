@@ -1,4 +1,3 @@
-import { track, trigger } from "./effect"
 import { mutableHandlers, readonlyHandles, shallowReadonlyHandles } from './baseHandlers';
 
 export const enum ReactiveFlags {

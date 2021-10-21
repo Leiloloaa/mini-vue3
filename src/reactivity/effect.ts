@@ -2,7 +2,7 @@ import { extend } from "../shared"
 
 let activeEffect
 let shouldTrack = false
-class ReactiveEffect {
+export class ReactiveEffect {
   private _fn: any
   deps = []
   scheduler: Function | undefined
@@ -84,6 +84,21 @@ export function track(target, key) {
   // 所以在 run 方法中
   // if (!shouldTrack) return
 
+  // if (dep.has(activeEffect)) return
+
+  // // 要存入的是一个 fn
+  // // 所以要利用一个全局变量
+  // dep.add(activeEffect)
+
+  // // 如何通过当前的 effect 去找到 deps？
+  // // 反向收集 deps
+  // activeEffect.deps.push(dep)
+
+  trackEffects(dep)
+}
+
+// 抽离 track 与 ref 公用
+export function trackEffects(dep) {
   if (dep.has(activeEffect)) return
 
   // 要存入的是一个 fn
@@ -95,7 +110,7 @@ export function track(target, key) {
   activeEffect.deps.push(dep)
 }
 
-function isTracking() {
+export function isTracking() {
   return shouldTrack && activeEffect !== undefined
 }
 
@@ -103,6 +118,10 @@ export function trigger(target, key) {
   // 触发依赖
   let depsMap = targetsMap.get(target)
   let dep = depsMap.get(key)
+  triggerEffects(dep)
+}
+
+export function triggerEffects(dep) {
   for (const effect of dep) {
     if (effect.scheduler) {
       effect.scheduler()
