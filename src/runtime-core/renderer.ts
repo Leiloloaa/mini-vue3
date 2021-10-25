@@ -7,8 +7,11 @@ export function render(vnode, rootComponent) {
 }
 
 function patch(vnode: any, rootComponent: any) {
-  // 去处理组件
+  // TODO 去处理组件
   // 判断什么类型
+  // 是 element 那么就应该去处理 element
+  // 如何区分是 element 还是 component 类型???
+  // processElement()
   processComponent(vnode, rootComponent)
 }
 

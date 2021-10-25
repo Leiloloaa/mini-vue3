@@ -256,3 +256,70 @@ it('stop', () => {
 ## 实现 readonly、shallowReadonly、isReadonly、isReactive 和 isProxy
 
 ## 实现 ref、isRef、unRef、proxyRefs 和 computed
+
+## 实现初始化 component 主流程
+
+## 使用 rollup 打包库
+
+- rollup 一般是用于对库的打包
+- webpack 一般用于我们写应用时用的打包工具
+
+### 安装
+
+```js
+yarn add rollup --dev
+```
+
+### 生成配置文件 rollup.config.js
+
+```js
+import typescript from '@rollup/plugin-typescript'
+import pkg from './package.json'
+// 天然支持 esm 语法
+export default {
+    input: './src/index.ts',
+    output: [
+        //1. cjs -> commonjs
+        //2. esm
+        {
+            format: 'cjs',
+            file: pkg.main
+        },
+        {
+            format: 'es',
+            file: pkg.module
+        }
+    ],
+    // 代码使用 ts 写的 需要编译
+    plugins: [typescript()]
+}
+```
+
+### 安装解析 ts 的插件
+
+```js
+npm install @rollup/plugin-typescript --save-dev
+yarn add tslib --dev
+```
+
+### 修改 package 配置文件
+
+```json
+// -c 表示指定的配置文件
+"scripts": {
+      "test": "jest",
+      "build": "rollup -c rollup.config.js"
+  },
+```
+
+### 再将 createApp 导出到 ./src/index.ts 里面
+
+```js
+// ./src/index.ts
+// mini-vue 的出口
+export * from './runtime-core'
+
+// ./src/runtime-core/index.ts
+// 导出的出口文件
+export { createApp } from './createApp'
+```

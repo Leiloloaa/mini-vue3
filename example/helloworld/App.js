@@ -1,3 +1,5 @@
+import { h } from '../../lib/guide-mini-vue.esm.js'
+
 export const App = {
     // 在 .vue 文件中是
     // 在 template 中写
