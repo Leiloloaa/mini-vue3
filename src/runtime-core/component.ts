@@ -32,6 +32,7 @@ function setupStatefulComponent(instance) {
     handleSetupResult(instance, setupResult)
   }
 }
+
 function handleSetupResult(instance, setupResult: any) {
   // TODO function
 
@@ -43,6 +44,8 @@ function handleSetupResult(instance, setupResult: any) {
 }
 
 function finishComponentSetup(instance: any) {
+  console.log(instance);
+
   const Component = instance.type
   instance.render = Component.render
 }

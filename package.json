@@ -1,8 +1,8 @@
 {
     "name": "my-miniVue",
     "version": "1.0.0",
-    "main": "lib/guide-mini-vue.cjs.js",
-    "module": "lib/guide-mini-vue.esm.js",
+    "main": "lib/my-miniVue.cjs.js",
+    "module": "lib/my-miniVue.esm.js",
     "repository": "git@github.com:Leiloloaa/my-miniVue.git",
     "author": "cl1997 <Leiloloaa@gmail.com>",
     "license": "MIT",

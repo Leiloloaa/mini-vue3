@@ -1,4 +1,4 @@
-import { h } from '../../lib/guide-mini-vue.esm.js'
+import { h } from '../../lib/my-miniVue.esm.js'
 
 export const App = {
     // 在 .vue 文件中是

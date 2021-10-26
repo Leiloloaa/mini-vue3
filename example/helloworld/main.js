@@ -1,5 +1,5 @@
 // vue3 用法
-import { createApp } from '../../lib/guide-mini-vue.esm.js'
+import { createApp } from '../../lib/my-miniVue.esm.js'
 import {
     App
 } from './App.js'

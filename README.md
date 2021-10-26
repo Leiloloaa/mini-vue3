@@ -255,9 +255,219 @@ it('stop', () => {
 
 ## 实现 readonly、shallowReadonly、isReadonly、isReactive 和 isProxy
 
-## 实现 ref、isRef、unRef、proxyRefs 和 computed
+## 总结 isReactive、isReadonly、isProxy、isRef、unRef
+
+- isReactive
+- isReadonly
+- isProxy
+- isRef
+- unRef
+
+### isReactive
+
+> 判断是否是 isReactive 响应式对象
+
+```js
+export function isReactive(value) {
+  // !! 感叹号 可以去除 undefined 的情况
+  return !!value[ReactiveFlags.IS_REACTIVE]
+}
+```
+
+- 只需要调用 value 的 get 方法，如果是响应式变量，那么返回一个 true；
+- 如果不是 响应式变量，那么 value 身上就没有 ReactiveFlags.IS_REACTIVE 这个属性，就会使 undefined
+  - 使用 !! 双感叹号转换
+
+### isReadonly
+
+> 判断是否是 readonly 只读属性
+
+```js
+export function isReadonly(value) {
+  return !!value[ReactiveFlags.IS_READONLY]
+}
+```
+
+原理同上，在 get 中返回 true
+
+### isProxy
+
+> 语法糖，内部还是靠前面两个实现的
+
+```js
+export function isProxy(value) {
+  return isReactive(value) || isReadonly(value)
+}
+```
+
+### isRef
+
+> 判断是否是 ref 响应式变量
+
+```js
+// 创建这个 实例 的时候，__v_isRef 为 true
+class RefImpl {
+  public __v_isRef = true
+}
+
+// 判断这个实例上 挂载的 __v_isRef 属性
+export function isRef(ref) {
+  return !!ref.__v_isRef
+}
+```
+
+### unRef
+
+> 语法糖
+
+```js
+export function unRef(ref) {
+  return isRef(ref) ? ref.value : ref
+}
+```
+
+如果是 ref 类型，那么就返回 value 值，否则返回本身
+
+
+
+## 实现 ref、proxyRefs、computed
+
+### ref
+
+**为什么要 .value?**
+
+ref 一般声明的是变量 get 的时候 要调用 get value 方法 拿值
+
+**为什么 reactive 定义的 不要**
+
+reactive 声明的是对象 对象的 get 方法 参数是 target 和 key，target[key] 就是值
+
+**实现**
+
+都是 返回一个 class 类，然后再在这个类中添加属性
+
+```ts
+export function ref(value) {
+  return new RefImpl(value)
+}
+
+class RefImpl {
+  private _value: any
+  dep
+  private _rawValue: any;
+  public __v_isRef = true
+  constructor(value) {
+    // 保留转换前的值
+    this._rawValue = value
+    this._value = convert(value)
+    this.dep = new Set()
+  }
+
+  get value() {
+    // 收集依赖
+    trackRefValue(this)
+    return this._value
+  }
+
+  set value(newValue) {
+    if (hasChanged(newValue, this._rawValue)) {
+      this._rawValue = newValue
+      this._value = convert(newValue)
+      // 触发依赖
+      triggerEffects(this.dep)
+    }
+  }
+}
+
+function convert(value) {
+  return isObject(value) ? reactive(value) : value
+}
+
+function trackRefValue(ref) {
+  if (isTracking()) {
+    trackEffects(ref.dep);
+  }
+}
+```
+
+### proxyRefs
+
+**具体的作用**
+
+在 template 中，自动拆箱，不用使用 .value 来获取值。内部的 get 方法是使用了 unRef 语法糖，如果是 ref 类型那么返回 .value 值，否则返回本身。
+
+```ts
+// 代理对象的属性 是 ref
+// proxyRefs 是帮我们在 template 中做了 ref 的拆箱处理
+// 不用加上 .value 内部使用了 unRef 语法糖
+export function proxyRefs(objectWithRefs) {
+  return new Proxy(objectWithRefs, {
+    get(target, key) {
+      // 如果是 ref 类型 就返回 .value 值 否则返回本身
+      return unRef(Reflect.get(target, key))
+    },
+    set(target, key, value) {
+      // 这个属性是 ref 并且新值不是 ref
+      if (isRef(target[key]) && !isRef(value)) {
+        return (target[key].value = value)
+      } else {
+        return Reflect.set(target, key, value)
+      }
+    }
+  })
+}
+```
+
+### computed
+
+computed 是计算属性，接收一个函数。具有懒加载属性，只有当依赖的响应式值发生改变的时候，才会触发更新。get value 中是通过实例的 dirty 属性来判断的。
+
+```ts
+class ComputedRefImpl {
+  private _getter: any
+  private _dirty: any = true
+  private _value: any
+  private _effect: ReactiveEffect
+  constructor(getter) {
+    this._getter = getter
+    this._effect = new ReactiveEffect(getter, () => {
+      if (!this._dirty) {
+        this._dirty = true
+      }
+    })
+  }
+
+  get value() {
+    // 要有个值来开关
+    // 如果依赖的响应式发生了修改 那么这个值就得修改
+    // this._dirty 就要为 true
+    if (this._dirty) {
+      this._value = this._effect.run()
+      this._dirty = false
+    }
+    return this._value
+  }
+}
+
+export function computed(getter) {
+  return new ComputedRefImpl(getter)
+}
+```
 
 ## 实现初始化 component 主流程
+
+**上图**
+
+![](http://66.152.176.25:8000/home/images/miniVue/componentRender.png)
+
+> 代码就是跟着 流程图 的命名逐一实现函数
+
+- processComponent() 在 patch() 中执行 switch default 分支，满足 ShapeFlags.COMPONENT 条件
+- mountComponent(n2,...) 首次加载组件时调用的函数
+- setupComponent(instance) 建立组件实例，做一些结构初始化操作(如：props和 slots)等
+- setupStatefulComponent(instance,isSSR) 创建有状态组件，执行 setup() 函数
+- setupRenderEffect() 通过 effect() 函数返回 instance.update 创建一个监听- 更新函数。
+- finishComponentSetup(instance,isSSR) 这个函数在 setupStatefulComponent() 中调用，主要做的事情是处理 SSR，没有 render 函数有 template 时调用 compile 编 译出 render 函数，兼容 2.x 的 options api
 
 ## 使用 rollup 打包库
 
@@ -323,3 +533,29 @@ export * from './runtime-core'
 // 导出的出口文件
 export { createApp } from './createApp'
 ```
+
+### 修改 tsconfig.json 配置文件
+
+```json
+ // commonjs -> esnext
+ "module": "esnext"
+```
+
+## 实现 element 
+
+**重点：如何在 patch 中区分 component 类型和 element 类型**
+
+> 通过 vnode.type
+
+```js
+// console.log(vnode.type);
+// object 是 component
+// div 是 element
+
+if (typeof vnode.type === 'string') {
+  processElement(vnode, container)
+} else if (isObject(vnode.type)) {
+  processComponent(vnode, container)
+}
+```
+
