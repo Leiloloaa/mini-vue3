@@ -35,28 +35,17 @@ function processComponent(vnode: any, container: any) {
   mountComponent(vnode, container)
 }
 
-function mountComponent(vnode, container) {
+function mountComponent(initialVNode, container) {
   // 创建组件实例
   // 这个实例上面有很多属性
-  const instance = createComponentInstance(vnode)
+  const instance = createComponentInstance(initialVNode)
 
   // 初始化
   setupComponent(instance)
 
   // 调用 render 函数
-  setupRenderEffect(instance, container)
+  setupRenderEffect(instance, initialVNode, container)
 }
-
-function setupRenderEffect(instance, container) {
-  // 虚拟节点树
-  const subTree = instance.render()
-
-  // vnode -> patch
-  // vnode -> element -> mountElement
-
-  patch(subTree, container)
-}
-
 
 function mountElement(vnode: any, container: any) {
   // const el = document.createElement("div")
@@ -64,7 +53,8 @@ function mountElement(vnode: any, container: any) {
   // el.textContent = "hi , minivue"
   // el.setAttribute("id", "root")
   // document.body.append(el)
-  const el = document.createElement(vnode.type)
+  // 这里的 vnode -> element -> div
+  const el = vnode.el = document.createElement(vnode.type)
   const { children } = vnode
   if (typeof children === "string") {
     el.textContent = children
@@ -84,4 +74,21 @@ function mountChildren(vnode, container) {
   vnode.forEach((v) => {
     patch(v, container)
   })
+}
+
+
+function setupRenderEffect(instance, initialVNode, container) {
+  const { proxy } = instance
+  // 虚拟节点树
+  // 一开始是创建在 instance 上
+  // 在这里就绑定 this
+  const subTree = instance.render.call(proxy)
+
+  // vnode -> patch
+  // vnode -> element -> mountElement
+
+  patch(subTree, container)
+
+  // 所有的 element -> mount
+  initialVNode.el = subTree.el
 }

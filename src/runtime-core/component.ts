@@ -1,7 +1,10 @@
+import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
+
 export function createComponentInstance(vnode) {
   const component = {
     vnode,
-    type: vnode.type
+    type: vnode.type,
+    setupState: {}
   }
   return component
 }
@@ -20,6 +23,12 @@ function setupStatefulComponent(instance) {
   // 调用 setup 然后 拿到返回值
   // type 就是 app 对象
   const Component = instance.type
+
+  // ctx
+  instance.proxy = new Proxy({
+    _: instance
+  }, PublicInstanceProxyHandlers)
+
   // 解构 setup
   const { setup } = Component
 
