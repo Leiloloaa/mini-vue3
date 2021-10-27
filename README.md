@@ -503,3 +503,5 @@ function mountElement(...){
 ## 实现注册事件功能
 
 ## 实现 props
+
+## 实现 emit
