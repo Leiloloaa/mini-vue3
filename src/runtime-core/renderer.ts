@@ -11,7 +11,6 @@ export function render(vnode, container) {
 }
 
 function patch(vnode: any, container: any) {
-
   // 通过 vnode.type 的类型判断
   if (typeof vnode.type === "string") {
     processElement(vnode, container)
@@ -21,21 +20,24 @@ function patch(vnode: any, container: any) {
 }
 
 // 处理 新建 或者 更新
-function processComponent(vnode: any, container: any) {
-  mountComponent(vnode, container)
+function processComponent(initialVNode: any, container: any) {
+  mountComponent(initialVNode, container)
 }
 
-function mountComponent(vnode: any, container: any) {
-  const instance = createComponentInstance(vnode)
+function mountComponent(initialVNode: any, container: any) {
+  const instance = createComponentInstance(initialVNode)
 
   // 初始化组件
   setupComponent(instance)
-  setupRenderEffect(instance, container)
+  setupRenderEffect(instance, initialVNode, container)
 }
 
-function setupRenderEffect(instance: any, container: any) {
-  const subTree = instance.render();
+function setupRenderEffect(instance: any, initialVNode, container: any) {
+  const { proxy } = instance
+  const subTree = instance.render.call(proxy)
+  // 在子树初始化 patch 之后 将 el 保存
   patch(subTree, container)
+  initialVNode.el = subTree.el
 }
 
 function processElement(vnode: any, container: any) {
@@ -43,7 +45,7 @@ function processElement(vnode: any, container: any) {
 }
 
 function mountElement(vnode: any, container: any) {
-  const el = document.createElement(vnode.type)
+  const el = vnode.el = document.createElement(vnode.type)
   // children
   const { children } = vnode
   // 可能是 string 也可能是 array
