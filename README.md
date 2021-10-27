@@ -675,3 +675,61 @@ function getShapeFlag(type) {
   return isString(type) ? ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
 }
 ```
+
+## 实现注册事件功能
+
+```js
+// App.js
+render() {
+      window.self = this;
+      // ui
+      return h(
+          'div', {
+              id: 'root',
+              class: ['red', 'hard'],
+              onClick() {
+                  console.log('click');
+              },
+              onMousedown() {
+                  console.log('onmousedown');
+              }
+          }
+      );
+  },
+```
+
+传入的事件是形式 on + 大写开头的事件
+
+挂载 element 的时候，判断 props 的这个 key 是否是以 on 开头，然后再注册事件
+
+```js
+// renderer.ts
+function mountElement(vnode: any, container: any) {
+  const el = vnode.el = document.createElement(vnode.type)
+  // children
+  const { children, shapeFlag } = vnode
+  // 可能是 string 也可能是 array
+  if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+    el.textContent = children
+  } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+    mountChildren(vnode, el)
+  }
+
+  // props
+  const { props } = vnode
+  for (const key in props) {
+    const val = props[key]
+    // 具体 click -> 通用
+    // on + Event name
+    // onMousedown
+    if (isOn(key)) {
+      const event = key.slice(2).toLocaleLowerCase()
+      el.addEventListener(event, val);
+    } else {
+      el.setAttribute(key, val)
+    }
+  }
+
+  container.append(el)
+}
+```

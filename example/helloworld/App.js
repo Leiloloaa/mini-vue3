@@ -10,7 +10,13 @@ export const App = {
         return h(
             "div", {
                 id: "root",
-                class: ["red", "hard"]
+                class: ["red", "hard"],
+                onClick() {
+                    console.log('onClick');
+                },
+                onMouseenter() {
+                    console.log('onMouseenter')
+                }
             },
             // string
             // this.$el -> get root element

@@ -1,5 +1,6 @@
 import { createComponentInstance, setupComponent } from "./component"
 import { ShapeFlags } from "../shared/shapeFlags"
+import { isOn } from "../shared/index"
 
 export function render(vnode, container) {
   // 只需要调用 patch 方法
@@ -67,7 +68,14 @@ function mountElement(vnode: any, container: any) {
   const { props } = vnode
   for (const key in props) {
     const val = props[key]
-    el.setAttribute(key, val)
+    // onClick 、 onMouseenter 等等这些的共同特征
+    // 以 on 开头 + 一个大写字母
+    if (isOn(key)) {
+      const event = key.slice(2).toLowerCase()
+      el.addEventListener(event, val);
+    } else {
+      el.setAttribute(key, val)
+    }
   }
   container.append(el)
 }

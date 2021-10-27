@@ -12,5 +12,8 @@ export const isArray = (value) => {
   return value !== null && Array.isArray(value)
 };
 
-
 export const hasChanged = (value, newValue) => { return !Object.is(value, newValue) };
+
+export const isOn = (key) => {
+  return /^on[A-Z]/.test(key)
+};
