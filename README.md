@@ -500,4 +500,6 @@ function mountElement(...){
 
 ## 实现 shapeFlags
 
-## 实现注册时间功能
+## 实现注册事件功能
+
+## 实现 props

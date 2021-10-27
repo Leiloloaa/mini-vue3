@@ -1,4 +1,5 @@
 import { h } from '../../lib/my-miniVue.esm.js';
+import { Foo } from './Foo.js';
 
 window.self = null;
 export const App = {
@@ -16,10 +17,10 @@ export const App = {
                 onMousedown() {
                     console.log('onmousedown');
                 }
-            },
+            }, [h('div', {}, 'hi,' + this.msg), h(Foo, { count: 1 })]
             // 直接使用 this
             // 思想思路：将 setup 的返回值绑定到 render 函数
-            'hi,' + this.msg
+            // 'hi,' + this.msg
             // string
             // "hi, mini-vue"
             // Array
