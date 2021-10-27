@@ -235,12 +235,6 @@ function cleanupEffect(effect) {
 }
 ```
 
-
-
-
-
-
-
 ## isReactive、isReadonly、isProxy、isRef、unRef
 
 - isReactive
@@ -503,3 +497,5 @@ function mountElement(...){
   ...
 }
 ```
+
+## 实现 shapeFlags
