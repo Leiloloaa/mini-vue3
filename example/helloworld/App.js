@@ -9,7 +9,13 @@ export const App = {
         return h(
             'div', {
                 id: 'root',
-                class: ['red', 'hard']
+                class: ['red', 'hard'],
+                onClick() {
+                    console.log('click');
+                },
+                onMousedown() {
+                    console.log('onmousedown');
+                }
             },
             // 直接使用 this
             // 思想思路：将 setup 的返回值绑定到 render 函数

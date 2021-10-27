@@ -1,5 +1,5 @@
-import { ShapeFlags } from '../shared/shapeFlag';
-import { isObject } from './../shared/index';
+import { isOn } from "../shared/index";
+import { ShapeFlags } from "../shared/shapeFlag";
 import { createComponentInstance, setupComponent } from "./component"
 
 export function render(vnode, container) {
@@ -62,7 +62,15 @@ function mountElement(vnode: any, container: any) {
   const { props } = vnode
   for (const key in props) {
     const val = props[key]
-    el.setAttribute(key, val)
+    // 具体 click -> 通用
+    // on + Event name
+    // onMousedown
+    if (isOn(key)) {
+      const event = key.slice(2).toLocaleLowerCase()
+      el.addEventListener(event, val);
+    } else {
+      el.setAttribute(key, val)
+    }
   }
 
   container.append(el)

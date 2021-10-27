@@ -11,3 +11,7 @@ export const isString = (value) => {
 export const hasChanged = (val, newValue) => {
   return !Object.is(val, newValue);
 };
+
+export const isOn = (key) => {
+  return /^on[A-Z]/.test(key)
+}

@@ -499,3 +499,5 @@ function mountElement(...){
 ```
 
 ## 实现 shapeFlags
+
+## 实现注册时间功能
