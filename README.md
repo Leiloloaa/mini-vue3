@@ -559,3 +559,119 @@ if (typeof vnode.type === 'string') {
 }
 ```
 
+## 实现 proxy 代理组件实例
+
+**目的**
+
+- 在 render 函数 中可以使用 setup 返回的值
+- 方便用户使用 $el、$data 等获取组件实例或是 data 中的数据
+
+**实现原理**
+
+- 将 setup 的返回的值绑定到 render 函数
+- 使用 proxy 放回实例
+
+```js
+// one
+// component.js
+// 在调用 setup 之前 在 instance 上 绑定 proxy
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    const setupResult = setup()
+    handleSetupResult(instance, setupResult)
+  }
+}
+// componentPublicInstance.js
+// 使用 map 集中管理 减少 if 的判断
+const publicPropertiesMap = {
+  $el: (i) => i.vnode.el
+}
+
+export const PublicInstanceProxyHandles = {
+  get({ _: instance }, key) {
+    // setupState 就是 setup 的返回值
+    const { setupState } = instance
+    if (Reflect.has(setupState, key)) {
+      return setupState[key]
+    }
+
+    // key -> $el 或 $data 等
+    // 使用 map
+    const publicGetter = publicPropertiesMap[key]
+    if (publicGetter) {
+      return publicGetter(instance)
+    }
+  }
+};
+
+// two
+// renderer.js
+// 在 render 调用的地方 绑定 proxy
+// 并且将 el 对象实例 保存
+function setupRenderEffect(instance: any, initialVNode, container: any) {
+  const { proxy } = instance
+  const subTree = instance.render.call(proxy)
+  // 在子树初始化 patch 之后 将 el 保存
+  patch(subTree, container)
+  initialVNode.el = subTree.el
+}
+function mountElement(...){
+  const el = vnode.el = document.createElement(vnode.type)
+  ...
+}
+```
+
+## 实现 shapeFlags
+
+**作用**
+
+> 类型判断；如果使用 object -> key 的方式，不是高效率；使用 位运算 直接把效率拉满
+
+```js
+// shapeFlag.ts
+// 修改 左移 乘以2 右移 除以2
+export const enum ShapeFlags {
+  ELEMENT = 1,// 0001
+  STATEFUL_COMPONENT = 1 << 1,// 0010
+  TEXT_CHILDREN = 1 << 2, // 0100
+  ARRAY_CHILDREN = 1 << 3, // 1000
+};
+
+// patch.js
+function patch(vnode: any, container: any) {
+  const { shapeFlag } = vnode
+  if (shapeFlag & ShapeFlags.ELEMENT) {
+    processElement(vnode, container)
+  } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+    processComponent(vnode, container)
+  }
+}
+
+// vnode.js
+export function createVNode(type, props?, children?) {
+  const vnode = {
+    type,
+    props,
+    children,
+    shapeFlag: getShapeFlag(type),
+    el: null
+  }
+
+  // children
+  if (isString(children)) {
+    vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN
+  } else if (Array.isArray(children)) {
+    vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+  }
+
+  return vnode
+}
+
+function getShapeFlag(type) {
+  return isString(type) ? ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
+}
+```

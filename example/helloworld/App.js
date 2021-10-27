@@ -20,14 +20,14 @@ export const App = {
 
             // 在组件中创建一个 代理对象 - 初始化
             // 调用 render 绑定 代理对象 到 this 上
-            "hi，mini-vue" + this.msg
+            "hi，" + this.msg
             // Array
             // [h("p", { class: "red" }, "hi red")]
         )
     },
     setup() {
         return {
-            msg: 'haha'
+            msg: 'mini-vue'
         }
     }
 }
