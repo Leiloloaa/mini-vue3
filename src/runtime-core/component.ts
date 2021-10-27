@@ -1,3 +1,4 @@
+import { isObject } from './../shared/index';
 import { shallowReadonly } from "../reactivity/reactive"
 import { emit } from "./componentEmit"
 import { initProps } from "./componentProps"
@@ -38,7 +39,7 @@ function setupStatefulComponent(instance) {
 
 function handleSetupResult(instance: any, setupResult: any) {
   // TODO function
-  if (typeof setupResult == "object") {
+  if (isObject(setupResult)) {
     instance.setupState = setupResult
   }
 

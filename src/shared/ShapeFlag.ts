@@ -5,7 +5,7 @@
 //   array_children: 0
 // }
 
-// => 修改 左移 乘以2 右移 除以2k
+// => 修改 左移 乘以2 右移 除以2
 export const enum ShapeFlags {
   ELEMENT = 1,// 0001
   STATEFUL_COMPONENT = 1 << 1,// 0010

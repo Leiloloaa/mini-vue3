@@ -500,8 +500,237 @@ function mountElement(...){
 
 ## 实现 shapeFlags
 
+**作用**
+
+> 类型判断；如果使用 object -> key 的方式，不是高效率；使用 位运算 直接把效率拉满
+
+```js
+// shapeFlag.ts
+// 修改 左移 乘以2 右移 除以2
+export const enum ShapeFlags {
+  ELEMENT = 1,// 0001
+  STATEFUL_COMPONENT = 1 << 1,// 0010
+  TEXT_CHILDREN = 1 << 2, // 0100
+  ARRAY_CHILDREN = 1 << 3, // 1000
+};
+
+// patch.js
+function patch(vnode: any, container: any) {
+  const { shapeFlag } = vnode
+  if (shapeFlag & ShapeFlags.ELEMENT) {
+    processElement(vnode, container)
+  } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+    processComponent(vnode, container)
+  }
+}
+
+// vnode.js
+export function createVNode(type, props?, children?) {
+  const vnode = {
+    type,
+    props,
+    children,
+    shapeFlag: getShapeFlag(type),
+    el: null
+  }
+
+  // children
+  if (isString(children)) {
+    vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN
+  } else if (Array.isArray(children)) {
+    vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+  }
+
+  return vnode
+}
+
+function getShapeFlag(type) {
+  return isString(type) ? ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
+}
+```
+
 ## 实现注册事件功能
+
+```js
+// App.js
+render() {
+      window.self = this;
+      // ui
+      return h(
+          'div', {
+              id: 'root',
+              class: ['red', 'hard'],
+              onClick() {
+                  console.log('click');
+              },
+              onMousedown() {
+                  console.log('onmousedown');
+              }
+          }
+      );
+  },
+```
+
+传入的事件是形式 on + 大写开头的事件
+
+挂载 element 的时候，判断 props 的这个 key 是否是以 on 开头，然后再注册事件
+
+```js
+// renderer.ts
+function mountElement(vnode: any, container: any) {
+  const el = vnode.el = document.createElement(vnode.type)
+  // children
+  const { children, shapeFlag } = vnode
+  // 可能是 string 也可能是 array
+  if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+    el.textContent = children
+  } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+    mountChildren(vnode, el)
+  }
+
+  // props
+  const { props } = vnode
+  for (const key in props) {
+    const val = props[key]
+    // 具体 click -> 通用
+    // on + Event name
+    // onMousedown
+    if (isOn(key)) {
+      const event = key.slice(2).toLocaleLowerCase()
+      el.addEventListener(event, val);
+    } else {
+      el.setAttribute(key, val)
+    }
+  }
+
+  container.append(el)
+}
+```
 
 ## 实现 props
 
+**要点**
+
+- setup 中传入 props
+- render 函数中能直接通过 this.xxx 来调用 props 的值
+- props 是 shallowReadonly 类型
+
+**根据要素一一实现**
+
+```js
+// 找到调用 setup 的地方 setupStatefulComponent
+// component.ts
+export function setupComponent(instance) {
+  initProps(instance, instance.vnode.props)
+  // TODO
+  // initSlots
+
+  setupStatefulComponent(instance)
+}
+
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    // 传入 实例的 props
+    const setupResult = setup(shallowReadonly(instance.props))
+    handleSetupResult(instance, setupResult)
+  }
+}
+
+// componentProps.ts
+export function initProps(instance, rawProps) {
+  instance.props = rawProps || {}
+  // attrs
+}
+```
+
 ## 实现 emit
+
+> emit 是子组件调用父组件中的方法
+
+**形式**
+
+> emit 是 setup 函数中第二个对象参数
+
+```ts
+export const Foo = {
+    setup(props, { emit }) {
+        const emitAdd = () => {
+            emit('add', 1, 2);
+            emit('add-foo', 3, 4);
+        };
+        return { emitAdd };
+    },
+    render() {
+        const btn = h(
+            'button', {
+                onClick: this.emitAdd
+            },
+            'emitAdd'
+        );
+        const foo = h('p', {}, 'foo');
+        return h('div', {}, [foo, btn]);
+    }
+};
+```
+
+**实现**
+
+```ts
+// component.js
+export function createComponentInstance(vnode) {
+  const component = {
+    vnode,
+    type: vnode.type,
+    setupState: {},
+    props: {},
+    emit: () => { }
+  }
+
+  // TODO 为什么？？？
+  component.emit = emit.bind(null, component) as any
+  return component
+}
+
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    const setupResult = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    handleSetupResult(instance, setupResult)
+  }
+}
+
+// componentEmit.ts
+export function emit(instance, event, ...args) {
+  // instance.props -> event
+  const { props } = instance
+
+  // TPP
+  // 先去写一个 特定 的行为 -> 重构成通用的行为
+  // add -> Add
+  // add-foo -> AddFoo
+  // const camelize = (str) => {
+  //   (str).replace(/-(\w)/g, (_, c: string) => {
+  //     return c ? c.toUpperCase() : ''
+  //   })
+  // }
+
+  // const capitalize = (str) => {
+  //   return str.charAt(0).toUpperCase() + str.slice(1)
+  // }
+
+  // const toHandlerKey = (str) => {
+  //   return str ? "on" + capitalize(str) : ''
+  // }
+
+  const handler = props[toHandlerKey(camelize(event))]
+
+  handler && handler(...args)
+}
+```

@@ -18,4 +18,3 @@ export const Foo = {
         return h('div', {}, [foo, btn]);
     }
 };
-4;
