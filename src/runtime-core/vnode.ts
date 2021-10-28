@@ -1,3 +1,4 @@
+import { isObject } from './../shared/index';
 import { isString } from "../shared/index"
 import { ShapeFlags } from "../shared/shapeFlag"
 
@@ -15,6 +16,13 @@ export function createVNode(type, props?, children?) {
     vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN
   } else if (Array.isArray(children)) {
     vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+  }
+
+  // 组件类型 + children 是 object 就有 slot
+  if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+    if (isObject(children)) {
+      vnode.shapeFlag |= ShapeFlags.SLOT_CHILDREN
+    }
   }
 
   return vnode

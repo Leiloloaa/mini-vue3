@@ -734,3 +734,224 @@ export function emit(instance, event, ...args) {
   handler && handler(...args)
 }
 ```
+
+## 实现 slot 插槽
+
+**slot 用法**
+
+```vue
+// 1、普通用法
+// 子组件中要使用 slot，才会显示 p
+// Children.vue
+<template>
+  <slot></slot>
+  <h1>我是子组件</h1>
+</template>
+
+// Parent.vue
+<Children><p>我是插槽部分<p></Children>
+
+// 2、具名插槽
+// 在 子组件中 给插槽增加 name
+// 父组件 通过 v-slot 传入
+// Children.vue
+<template>
+  <slot name="header"></slot>
+  <h1>我是子组件</h1>
+  <slot name="footer"></slot>
+</template>
+
+// Parent.vue
+<Children>
+  <template v-slot:header>我是头部</template>
+  <template v-slot:footer>我是尾部</template>
+</Children>
+
+// 3、作用域插槽
+// 能使用子组件中的变量
+// Children.vue
+<slot v-bind:str="data">{{ data.msg }}</slot>
+const data = reactive({ msg: 123, msg2: 456 });
+
+// Parent.vue
+<Children><template v-slot:default="slotProps">{{ slotProps.str.msg2 }}</template></Children>
+```
+
+咱们知道用法后，就往下关注实现的原理
+
+### 普通用法实现原理
+
+```js
+// App.js render 函数
+const app = h('div', {}, 'App');
+// 原先是 h(Foo) 在 children 中添加了一个 p 标签
+const foo = h(Foo, {}, h('p', {}, '123'));
+return h('div', {}, [app, foo]);
+// Foo.js render 函数
+// 渲染 children 的时候 里面必须是 vnode
+// 如果是数组需要转换
+// 粗暴处理 能实现
+// return h('div', {}, [foo, h('div', {}, this.$slots)]);
+
+// 实现 this.$slots 这是提供给用户的
+// 修改 componentPublicInstance.ts
+const publicPropertiesMap = {
+  $el: (i) => i.vnode.el,
+  $slots: (i) => i.slots
+}
+
+// 创建组件实例时 添加 slots
+const component = {
+  vnode,
+  type: vnode.type,
+  setupState: {},
+  props: {},
+  slots: {},
+  emit: () => { }
+}
+
+// 如果传入的是一个数组
+// App.js
+// const foo = h(Foo, {}, [h('p', {}, '123'), h('p', {}, '456')]);
+// 换成单个值后 又不能渲染了 在 renderSlots 函数中修改
+// return Array.isArray(slots) ? createVNode("div", {}, slots) : slots
+// 最终的办法是在初始化的时候 将 children 转换成数组
+// !! 普通使用
+// const foo = h(Foo, {}, h('p', {}, '123'));
+// return h('div', {}, [app, foo]);
+
+// 优化 创建 renderSlots.ts
+export function renderSlots(slots, name, props) {
+  return createVNode("div", {}, slot(props))
+}
+
+// 初始化 slots componentSlots.ts
+export function initSlots(instance, children) {
+  // children is vnode
+  // instance.slots = children
+
+  // children is array
+  instance.slots = Array.isArray(children) ? children : [children]
+}
+```
+
+### 具名插槽实现原理
+
+```js
+// App.js
+// object key
+// 从 array -> object
+const foo = h(
+    Foo, {}, {
+        header: h('p', {}, '123'),
+        footer: h('p', {}, '456')
+    }
+);
+
+// Foo.js
+// 获取到要渲染的元素、
+// 获取到渲染的位置
+return h('div', {}, [
+    renderSlots(this.$slots, 'header'),
+    foo,
+    renderSlots(this.$slots, 'footer')
+]);
+
+// 修改 renderSlots
+export function renderSlots(slots, name, ) {
+  const slot = slots[name]
+  if (slot) {
+      return createVNode("div", {}, slot)
+  }
+}
+```
+
+### 作用域插槽实现原理
+
+```js
+// App.js
+// 这个 age 是 Foo 组件内部的插槽
+// 变成一个 fn 然后传入值
+const foo = h(
+    Foo, {}, {
+        // 解构 age 因为 传进来的是个 对象
+        header: ({ age }) => h('p', {}, '123，年龄' + age),
+        footer: () => h('p', {}, '456')
+    }
+);
+return h('div', {}, [app, foo]);
+
+// Foo.js
+// 意思是将 Foo 组件中的变量传出去
+const age = 18;
+return h('div', {}, [
+    renderSlots(this.$slots, 'header', { age }),
+    foo,
+    renderSlots(this.$slots, 'footer')
+]);
+
+// 修改 renderSlots
+import { createVNode } from "../vnode";
+
+export function renderSlots(slots, name, props) {
+
+  const slot = slots[name]
+
+  if (slot) {
+    if (typeof slot === 'function') {
+      // 直接调用
+      return createVNode("div", {}, slot(props))
+    }
+  }
+}
+
+// 修改初始化 slots
+import { ShapeFlags } from "../shared/shapeFlag";
+
+export function initSlots(instance, children) {
+    normalizeObjectSlots(children, instance.slots)
+}
+
+function normalizeObjectSlots(children, slots) {
+  for (const key in children) {
+    const value = children[key];
+    // slots[key] = Array.isArray(value) ? value : [value]   
+    // slots[key] = normalizeSlotValue(value)
+    // 修改 当 是一个 函数的时候 直接调用
+    slots[key] = (props) => normalizeSlotValue(value(props))
+  }
+}
+
+function normalizeSlotValue(value) {
+  return Array.isArray(value) ? value : [value]
+}
+```
+
+### 优化初始化 slots 过程
+
+```js
+// componentSlots.ts
+// 优化 并不是所有的 children 都有 slots
+// 通过 位运算 来处理
+const { vnode } = instance
+if (vnode.shapeFlag & ShapeFlags.SLOT_CHILDREN) {
+  normalizeObjectSlots(children, instance.slots)
+}
+
+// 再修改 vnode.ts
+// 组件类型 + children 是 object 就有 slot
+if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+  if (isObject(children)) {
+    vnode.shapeFlag |= ShapeFlags.SLOT_CHILDREN
+  }
+}
+
+// 添加 SLOT_CHILDREN
+export const enum ShapeFlags {
+  ELEMENT = 1,// 0001
+  STATEFUL_COMPONENT = 1 << 1,// 0010
+  TEXT_CHILDREN = 1 << 2, // 0100
+  ARRAY_CHILDREN = 1 << 3, // 1000
+  SLOT_CHILDREN = 1 << 4, // 10000
+};
+```

@@ -9,7 +9,7 @@ export function emit(instance, event, ...args) {
   // add -> Add
   // add-foo -> AddFoo
   // const camelize = (str) => {
-  //   (str).replace(/-(\w)/g, (_, c: string) => {
+  //   return (str).replace(/-(\w)/g, (_, c: string) => {
   //     return c ? c.toUpperCase() : ''
   //   })
   // }
@@ -23,6 +23,5 @@ export function emit(instance, event, ...args) {
   // }
 
   const handler = props[toHandlerKey(camelize(event))]
-
   handler && handler(...args)
 }
