@@ -734,7 +734,6 @@ function mountElement(vnode: any, container: any) {
 }
 ```
 
-## 实现 props
 
 ## 实现 props
 
@@ -789,5 +788,118 @@ if (hasOwn(setupState, key)) {
   return setupState[key]
 } else if (hasOwn(props, key)) {
   return props[key]
+}
+```
+
+## 实现 emit
+
+> emit 是子组件调用父组件中的方法
+
+**形式**
+
+> emit 是 setup 函数中第二个对象参数
+
+```ts
+// App.js
+export const App = {
+    render() {
+        return h(
+            'div', {},
+            [
+                h(Foo, {
+                    onAdd(a, b, c) {
+                        console.log('我执行了onAdd', a, b, c);
+                    },
+                    onAddFoo() {
+                        console.log('我执行了addFoo');
+                    }
+                })
+            ]
+        );
+    },
+    setup() {
+        return {
+            msg: 'mini-vue'
+        };
+    }
+};
+// Foo.js
+export const Foo = {
+    setup(props, { emit }) {
+        const emitAdd = () => {
+            emit('add', 1, 2);
+            emit('add-foo', 3, 4);
+        };
+        return { emitAdd };
+    },
+    render() {
+        const btn = h(
+            'button', {
+                onClick: this.emitAdd
+            },
+            'emitAdd'
+        );
+        const foo = h('p', {}, 'foo');
+        return h('div', {}, [foo, btn]);
+    }
+};
+```
+
+**实现**
+
+```ts
+// component.js
+export function createComponentInstance(vnode) {
+  const component = {
+    vnode,
+    type: vnode.type,
+    setupState: {},
+    props: {},
+    emit: () => { }
+  }
+
+  // TODO 为什么？？？
+   // bind 的第一个参数 如果是 undefined 或者 null  那么 this 就是指向 windows
+  // 这样做的目的是 实现了 emit 的第一个参数 为 component 实例 这是预置入
+  component.emit = emit.bind(null, component) as any
+  return component
+}
+
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    const setupResult = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    handleSetupResult(instance, setupResult)
+  }
+}
+
+// componentEmit.ts
+export function emit(instance, event, ...args) {
+  // instance.props -> event
+  const { props } = instance
+
+  // TPP
+  // 先去写一个 特定 的行为 -> 重构成通用的行为
+  // add -> Add
+  // add-foo -> AddFoo
+  // const camelize = (str) => {
+  //   (str).replace(/-(\w)/g, (_, c: string) => {
+  //     return c ? c.toUpperCase() : ''
+  //   })
+  // }
+
+  // const capitalize = (str) => {
+  //   return str.charAt(0).toUpperCase() + str.slice(1)
+  // }
+
+  // const toHandlerKey = (str) => {
+  //   return str ? "on" + capitalize(str) : ''
+  // }
+
+  const handler = props[toHandlerKey(camelize(event))]
+  handler && handler(...args)
 }
 ```

@@ -1,4 +1,5 @@
 import { shallowReadonly } from "../reactivity/reactive"
+import { emit } from "./componentEmit"
 import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
 
@@ -7,8 +8,12 @@ export function createComponentInstance(vnode) {
     vnode,
     type: vnode.type,
     props: {},
-    setupState: {}
+    setupState: {},
+    emit: () => { }
   }
+  // bind 的第一个参数 如果是 undefined 或者 null  那么 this 就是指向 windows
+  // 这样做的目的是 实现了 emit 的第一个参数 为 component 实例 这是预置入
+  component.emit = emit.bind(null, component) as any
   return component
 }
 
@@ -40,7 +45,7 @@ function setupStatefulComponent(instance) {
     // 返回一个 function 或者是 Object
     // 如果是 function 则认为是 render 函数
     // 如果是 Object 则注入到当前组件的上下文中
-    const setupResult = setup(shallowReadonly(instance.proxy))
+    const setupResult = setup(shallowReadonly(instance.proxy), { emit: instance.emit })
 
     handleSetupResult(instance, setupResult)
   }
