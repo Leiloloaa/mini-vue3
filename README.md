@@ -733,3 +733,61 @@ function mountElement(vnode: any, container: any) {
   container.append(el)
 }
 ```
+
+## 实现 props
+
+## 实现 props
+
+**要点**
+
+- setup 中传入 props
+- render 函数中能直接通过 this.xxx 来调用 props 的值
+- props 是 shallowReadonly 类型
+
+**根据要素一一实现**
+
+```js
+// 找到调用 setup 的地方 setupStatefulComponent
+// component.ts
+export function setupComponent(instance) {
+  // instance 是组件
+  // instance.vnode 是 element
+  initProps(instance, instance.vnode.props)
+  // TODO
+  // initSlots
+
+  setupStatefulComponent(instance)
+}
+
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    // 传入 实例的 props
+    const setupResult = setup(shallowReadonly(instance.props))
+    handleSetupResult(instance, setupResult)
+  }
+}
+
+// componentProps.ts
+export function initProps(instance, rawProps) {
+  instance.props = rawProps || {}
+  // attrs
+}
+
+// componentPublicInstance.ts 修改 proxy 中的 get
+//  setupState
+const { setupState, props } = instance
+// if (Reflect.has(setupState, key)) {
+//   return setupState[key]
+// }
+
+// 检测 key 是否在目标 上
+if (hasOwn(setupState, key)) {
+  return setupState[key]
+} else if (hasOwn(props, key)) {
+  return props[key]
+}
+```

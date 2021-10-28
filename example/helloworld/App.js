@@ -1,21 +1,22 @@
-import { h } from '../../lib/my-miniVue.esm.js'
+import { h } from '../../lib/my-miniVue.esm.js';
+import { Foo } from './Foo.js';
 
-window.self = null
+window.self = null;
 export const App = {
     // 在 .vue 文件中是
     // 在 template 中写
     // 然后编译成 render 函数执行
     render() {
-        window.self = this
+        window.self = this;
         return h(
-            "div", {
-                id: "root",
-                class: ["red", "hard"],
+            'div', {
+                id: 'root',
+                class: ['red', 'hard'],
                 onClick() {
                     console.log('onClick');
                 },
                 onMouseenter() {
-                    console.log('onMouseenter')
+                    console.log('onMouseenter');
                 }
             },
             // string
@@ -26,14 +27,15 @@ export const App = {
 
             // 在组件中创建一个 代理对象 - 初始化
             // 调用 render 绑定 代理对象 到 this 上
-            "hi，" + this.msg
+            // "hi，" + this.msg
             // Array
             // [h("p", { class: "red" }, "hi red")]
-        )
+            [h(Foo, { count: 1 })]
+        );
     },
     setup() {
         return {
             msg: 'mini-vue'
-        }
+        };
     }
-}
+};
