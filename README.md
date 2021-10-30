@@ -466,8 +466,8 @@ export function computed(getter) {
 - mountComponent(n2,...) 首次加载组件时调用的函数
 - setupComponent(instance) 建立组件实例，做一些结构初始化操作(如：props和 slots)等
 - setupStatefulComponent(instance,isSSR) 创建有状态组件，执行 setup() 函数
-- setupRenderEffect() 通过 effect() 函数返回 instance.update 创建一个监听- 更新函数。
 - finishComponentSetup(instance,isSSR) 这个函数在 setupStatefulComponent() 中调用，主要做的事情是处理 SSR，没有 render 函数有 template 时调用 compile 编 译出 render 函数，兼容 2.x 的 options api
+- setupRenderEffect() 通过 effect() 函数返回 instance.update 创建一个监听- 更新函数。
 
 ## 使用 rollup 打包库
 
@@ -733,7 +733,6 @@ function mountElement(vnode: any, container: any) {
   container.append(el)
 }
 ```
-
 
 ## 实现 props
 
@@ -1150,4 +1149,115 @@ export const enum ShapeFlags {
   ARRAY_CHILDREN = 1 << 3, // 1000
   SLOT_CHILDREN = 1 << 4, // 10000
 };
+```
+
+## 实现 Fragment 和 TextNode
+
+```js
+// vnode.ts Symbol 变量
+export const Fragment = Symbol('Fragment');
+export const Text = Symbol('Text');
+```
+
+**实现 Fragment**
+
+上回说到，咱们为了实现 children 是数组的情况，在 renderSlots 中 创建虚拟 dom 的时候，手动添加了 div 作为 component，然后再去遍历其 children。显然这是不可行的。通过关键字 Fragment 去直接 mountChildren （遍历其子元素）
+
+```js
+// 修改 renderSlots.ts
+export function renderSlots(slots, name, props) {
+
+  const slot = slots[name]
+
+  if (slot) {
+    if (typeof slot === 'function') {
+      // 直接调用
+      // 实际上这种写法会多了一个 div
+      // 我们通过一个 Fragment 来判断，然后直接 遍历 children
+      return createVNode(Fragment, {}, slot(props))
+    }
+  }
+}
+
+// 修改 renderer.ts 中的 patch 方法
+// 可能之后会有很多 type 类型 所以用 switch 进行选择
+function patch(vnode: any, container: any) {
+  const { type, shapeFlag } = vnode
+  switch (type) {
+    case Fragment:
+      processFragment(vnode, container)
+      break;
+    default:
+      // 通过 vnode.type 的类型判断
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(vnode, container)
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(vnode, container)
+      }
+      break;
+  }
+}
+
+function processFragment(vnode: any, container: any) {
+  // 通过 mountChildren 去依次遍历
+  mountChildren(vnode, container)
+}
+
+function mountChildren(vnode: any, container: any) {
+  vnode.children.forEach((v) => {
+    patch(v, container)
+  });
+}
+```
+
+**实现静态文本节点**
+
+如果是 text 是静态节点，外层是不用任何标签的，直接通过 document.createTextNode('text') 创建，再添加到 container 中
+
+```js
+// App.js
+const foo = h(
+        Foo, {}, {
+            // 解构 age 因为 传进来的是个 对象
+            header: ({ age }) => [
+                h('p', {}, '123，年龄' + age),
+                createTextVNode('你好啊！')
+            ],
+            footer: () => h('p', {}, '456')
+        }
+    );
+
+// 修改 vnode.ts 增加 createTextVNode
+export function createTextVNode(text: string) {
+  return createVNode(Text, {}, text)
+}
+
+// 修改 renderer.ts 中的 patch 方法
+function patch(vnode: any, container: any) {
+  const { type, shapeFlag } = vnode
+  switch (type) {
+    case Fragment:
+      processFragment(vnode, container)
+      break;
+    case Text:
+      processText(vnode, container)
+      break;
+    default:
+      // 通过 vnode.type 的类型判断
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(vnode, container)
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(vnode, container)
+      }
+      break;
+  }
+}
+
+function processText(vnode: any, container: any) {
+  // 挂载 text 静态文本 vnode.children
+  // console.log(vnode.children);
+  const { children } = vnode
+  const textNode = vnode.el = document.createTextNode(children)
+  container.append(textNode)
+}
 ```

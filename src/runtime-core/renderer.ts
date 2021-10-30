@@ -1,3 +1,4 @@
+import { Fragment, Text } from './vnode';
 import { createComponentInstance, setupComponent } from "./component"
 import { ShapeFlags } from "../shared/shapeFlags"
 import { isOn } from "../shared/index"
@@ -19,12 +20,28 @@ function patch(vnode: any, container: any) {
 
   // debugger
 
-  const { shapeFlag } = vnode
-  // 0001 & 0001 -> 0001
-  if (shapeFlag & ShapeFlags.ELEMENT) {
-    processElement(vnode, container)
-  } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-    processComponent(vnode, container)
+  const { type, shapeFlag } = vnode
+  // 根据 type 来渲染
+  // console.log(type);
+  // Object
+  // div/p -> String
+  // Fragment
+  // Text
+  switch (type) {
+    case Fragment:
+      processFragment(vnode, container)
+      break;
+    case Text:
+      processText(vnode, container)
+      break;
+    default:
+      // 0001 & 0001 -> 0001
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(vnode, container)
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(vnode, container)
+      }
+      break;
   }
 }
 
@@ -102,3 +119,20 @@ function setupRenderEffect(instance, initialVNode, container) {
   // 所有的 element -> mount
   initialVNode.el = subTree.el
 }
+
+function processFragment(vnode: any, container: any) {
+  // 此时，拿出 vnode 中的 children
+  const { children } = vnode
+  mountChildren(children, container)
+}
+
+function processText(vnode: any, container: any) {
+  // console.log(vnode);
+  // 文本内容 在 children 中
+  const { children } = vnode
+  // 创建文本节点
+  const textNode = vnode.el = document.createTextNode(children)
+  // 挂载到容器中
+  container.append(textNode);
+}
+
