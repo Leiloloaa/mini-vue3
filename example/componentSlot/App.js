@@ -1,4 +1,4 @@
-import { h } from '../../lib/my-miniVue.esm.js';
+import { h, createTextVNode } from '../../lib/my-miniVue.esm.js';
 import { Foo } from './Foo.js';
 
 export const App = {
@@ -27,7 +27,10 @@ export const App = {
         const foo = h(
             Foo, {}, {
                 // 解构 age 因为 传进来的是个 对象
-                header: ({ age }) => h('p', {}, '123，年龄' + age),
+                header: ({ age }) => [
+                    h('p', {}, '123，年龄' + age),
+                    createTextVNode('你好啊！')
+                ],
                 footer: () => h('p', {}, '456')
             }
         );

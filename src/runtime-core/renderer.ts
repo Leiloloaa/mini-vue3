@@ -1,3 +1,4 @@
+import { Fragment, Text } from './vnode';
 import { isOn } from "../shared/index";
 import { ShapeFlags } from "../shared/shapeFlag";
 import { createComponentInstance, setupComponent } from "./component"
@@ -12,13 +13,22 @@ export function render(vnode, container) {
 }
 
 function patch(vnode: any, container: any) {
-
-  const { shapeFlag } = vnode
-  // 通过 vnode.type 的类型判断
-  if (shapeFlag & ShapeFlags.ELEMENT) {
-    processElement(vnode, container)
-  } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-    processComponent(vnode, container)
+  const { type, shapeFlag } = vnode
+  switch (type) {
+    case Fragment:
+      processFragment(vnode, container)
+      break;
+    case Text:
+      processText(vnode, container)
+      break;
+    default:
+      // 通过 vnode.type 的类型判断
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(vnode, container)
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(vnode, container)
+      }
+      break;
   }
 }
 
@@ -80,5 +90,18 @@ function mountChildren(vnode: any, container: any) {
   vnode.children.forEach((v) => {
     patch(v, container)
   });
+}
+
+function processFragment(vnode: any, container: any) {
+  // 通过 mountChildren 去依次遍历
+  mountChildren(vnode, container)
+}
+
+function processText(vnode: any, container: any) {
+  // 挂载 text 静态文本 vnode.children
+  // console.log(vnode.children);
+  const { children } = vnode
+  const textNode = vnode.el = document.createTextNode(children)
+  container.append(textNode)
 }
 

@@ -6,7 +6,7 @@ export const Foo = {
     render() {
         const foo = h('p', {}, 'foo');
         // 渲染 Foo .vnode children 中拿到 插槽 然后添加，通过 this.$slots 的方式返回
-        console.log(this.$slots);
+        // console.log(this.$slots);
         // !! 普通用法
         // 渲染 children 的时候 里面必须是 vnode
         // 如果是数组需要转换
