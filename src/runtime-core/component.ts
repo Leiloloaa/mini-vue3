@@ -44,10 +44,12 @@ function setupStatefulComponent(instance) {
   const { setup } = Component
 
   if (setup) {
+    setCurrentInstance(instance)
     // 返回一个 function 或者是 Object
     // 如果是 function 则认为是 render 函数
     // 如果是 Object 则注入到当前组件的上下文中
     const setupResult = setup(shallowReadonly(instance.proxy), { emit: instance.emit })
+    setCurrentInstance(null)
 
     handleSetupResult(instance, setupResult)
   }
@@ -68,3 +70,14 @@ function finishComponentSetup(instance: any) {
   instance.render = Component.render
 }
 
+let currentInstance = null
+export function getCurrentInstance() {
+  // 需要返回实例
+  return currentInstance
+}
+
+// 赋值时 封装函数的好处
+// 我们可以清晰的知道 谁调用了 方便调试
+export function setCurrentInstance(instance) {
+  currentInstance = instance;
+}
