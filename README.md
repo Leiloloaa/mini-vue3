@@ -956,7 +956,7 @@ export const enum ShapeFlags {
 };
 ```
 
-## 实现 Fragement 和 TextNode
+## 实现 Fragment 和 TextNode
 
 ```js
 // vnode.ts Symbol 变量
@@ -964,7 +964,7 @@ export const Fragment = Symbol('Fragment');
 export const Text = Symbol('Text');
 ```
 
-**实现 Fragement**
+**实现 Fragment**
 
 上回说到，咱们为了实现 children 是数组的情况，在 renderSlots 中 创建虚拟 dom 的时候，手动添加了 div 作为 component，然后再去遍历其 children。显然这是不可行的。通过关键字 Fragment 去直接 mountChildren （遍历其子元素）
 
@@ -1064,5 +1064,76 @@ function processText(vnode: any, container: any) {
   const { children } = vnode
   const textNode = vnode.el = document.createTextNode(children)
   container.append(textNode)
+}
+```
+
+## 实现 getCurrentInstance
+
+**用法**
+
+getCurrentInstance 允许访问内部组件实例
+
+```ts
+import { getCurrentInstance } from 'vue'
+
+const MyComponent = {
+  setup() {
+    const internalInstance = getCurrentInstance()
+
+    internalInstance.appContext.config.globalProperties // access to globalProperties
+  }
+}
+```
+
+**实现**
+
+- 在 setup 函数内，找到 setup 调用的地方
+- 调用 getCurrentInstance 是返回一个实例对象，创建一个全局的变量临时保存
+- 每个组件的实例对象都不同
+
+```ts
+// 在 component.ts 中创建函数
+// 因为是与组件有关 所以在 components.ts 中
+let currentInstance = null
+export function getCurrentInstance() {
+  return currentInstance
+}
+
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    // 赋值
+    currentInstance = instance
+    const setupResult = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    // 还原
+    currentInstance = null
+    handleSetupResult(instance, setupResult)
+  }
+}
+```
+
+如果是 直接赋值 这样组件一多 调试时 就可能不清楚谁修改的，改成函数的话，就知道调用来源是谁了！
+
+```ts
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    // 赋值
+    setCurrentInstance(instance)
+    const setupResult = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    // 还原
+    setCurrentInstance(null)
+    handleSetupResult(instance, setupResult)
+  }
+}
+
+function setCurrentInstance(value){
+   currentInstance = value
 }
 ```
