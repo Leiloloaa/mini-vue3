@@ -5,13 +5,15 @@ import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandles } from "./componentPublicInstance"
 import { initSlots } from './componentSlots';
 
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode, parent) {
   const component = {
     vnode,
     type: vnode.type,
     setupState: {},
     props: {},
     slots: {},
+    provides: parent ? parent.provides : {}, // 一开始是初始化，然后父级存在，就是取父级的
+    parent, // 存储父级component
     emit: () => { }
   }
 
@@ -55,7 +57,7 @@ function finishComponentSetup(instance: any) {
   instance.render = Component.render
 }
 
-let currentInstance = null
+let currentInstance = null;
 export function getCurrentInstance() {
   return currentInstance
 }

@@ -1137,3 +1137,5 @@ function setCurrentInstance(value){
    currentInstance = value
 }
 ```
+
+## 实现 provide/inject 功能
