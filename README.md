@@ -1261,3 +1261,169 @@ function processText(vnode: any, container: any) {
   container.append(textNode)
 }
 ```
+
+## 实现 getCurrentInstance
+
+**用法**
+
+getCurrentInstance 允许访问内部组件实例
+
+```ts
+import { getCurrentInstance } from 'vue'
+
+const MyComponent = {
+  setup() {
+    const internalInstance = getCurrentInstance()
+
+    internalInstance.appContext.config.globalProperties // access to globalProperties
+  }
+}
+```
+
+**实现**
+
+- 在 setup 函数内，找到 setup 调用的地方
+- 调用 getCurrentInstance 是返回一个实例对象，创建一个全局的变量临时保存
+- 每个组件的实例对象都不同
+
+```ts
+// 在 component.ts 中创建函数
+// 因为是与组件有关 所以在 components.ts 中
+let currentInstance = null
+export function getCurrentInstance() {
+  return currentInstance
+}
+
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    // 赋值
+    currentInstance = instance
+    const setupResult = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    // 还原
+    currentInstance = null
+    handleSetupResult(instance, setupResult)
+  }
+}
+```
+
+如果是 直接赋值 这样组件一多 调试时 就可能不清楚谁修改的，改成函数的话，就知道调用来源是谁了！
+
+```ts
+function setupStatefulComponent(instance) {
+  const Component = instance.type
+  instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandles)
+  const { setup } = Component
+
+  if (setup) {
+    // 赋值
+    setCurrentInstance(instance)
+    const setupResult = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    // 还原
+    setCurrentInstance(null)
+    handleSetupResult(instance, setupResult)
+  }
+}
+
+function setCurrentInstance(value){
+   currentInstance = value
+}
+```
+
+## 实现 provide 和 inject
+
+**用途**：provide 和 inject 是 vue 提供跨层级组件通信的方式
+
+> 组件通信方式：1、props 和 emit；2、provide 和 inject；3、vuex；4、`$attrs`和`$listeners`；5、`$parent`和`$children`（vue2 常用）；6、事件中心 EventBus；
+
+**实现**
+
+- 祖组件通过 provide 的方式存储数据
+- 子孙通过 inject 的方式取数据
+- 存在哪里？？？
+  - 存在实例身上，这样每个组件的 provide 就不一样
+  - 使用 getCurrentInstance 来获取实例
+  - 所以 provide 只能在 setup 中调用
+- 如果 爷爷组件 和 父组件 的 key 重复了，那就是取父组件的 key
+
+**保存在实例上**
+
+```ts
+// 这里涉及到修改以前的代码 第一次 patch 的时候为 null 第二次是传 instance
+export function createComponentInstance(vnode, parent) {
+  const component = {
+    vnode,
+    type: vnode.type,
+    props: {},
+    slots: {},
+    setupState: {},
+    provides: parent ? parent.provides : {}, // 获取 parent 的 provides 作为当前组件的初始化值 这样就可以继承 parent.provides 的属性了
+    parent,
+    emit: () => { }
+  }
+  // bind 的第一个参数 如果是 undefined 或者 null  那么 this 就是指向 windows
+  // 这样做的目的是 实现了 emit 的第一个参数 为 component 实例 这是预置入
+  component.emit = emit.bind(null, component) as any
+  return component
+}
+```
+
+**实现**
+
+```ts
+import { getCurrentInstance } from "./component";
+
+// provide-inject 提供了组件之间跨层级传递数据 父子、祖孙 等
+export function provide(key, value) {
+  // 存储
+  // 想一下，数据应该存在哪里？
+  // 如果是存在 最外层的 component 中，里面组件都可以访问到了
+  // 接着就要获取组件实例 使用 getCurrentInstance，所以 provide 只能在 setup 中使用
+  const currentInstance: any = getCurrentInstance()
+  if (currentInstance) {
+    let { provides } = currentInstance
+    const parentProvides = currentInstance.parent.provides
+
+    // 如果当前组件的 provides 等于 父级组件的 provides
+    // 是要 通过 原型链 的方式 去查找
+    // Object.create() 方法创建一个新对象，使用现有的对象来提供新创建的对象的 __proto__
+
+    // 这里要解决一个问题
+    // 当父级 key 和 爷爷级别的 key 重复的时候，对于子组件来讲，需要取最近的父级别组件的值
+    // 那这里的解决方案就是利用原型链来解决
+    // provides 初始化的时候是在 createComponent 时处理的，当时是直接把 parent.provides 赋值给组件的 provides 的
+    // 所以，如果说这里发现 provides 和 parentProvides 相等的话，那么就说明是第一次做 provide(对于当前组件来讲)
+    // 我们就可以把 parent.provides 作为 currentInstance.provides 的原型重新赋值
+    // 至于为什么不在 createComponent 的时候做这个处理，可能的好处是在这里初始化的话，是有个懒执行的效果（优化点，只有需要的时候在初始化）
+
+    // 首先咱们要知道 初始化 的时候 子组件 的 provides 就是父组件的 provides
+    // currentInstance.parent.provides 是 爷爷组件
+    // 当两个 key 值相同的时候要取 最近的 父组件的
+    if (provides === parentProvides) {
+      provides = currentInstance.provides = Object.create(parentProvides);
+    }
+    provides[key] = value
+  }
+}
+
+export function inject(key, defaultValue: any) {
+  // 取出
+  // 从哪里取？若是 祖 -> 孙，要获取哪里的？？
+  const currentInstance: any = getCurrentInstance()
+  if (currentInstance) {
+    const parentProvides = currentInstance.parent.provides
+    if (key in parentProvides) {
+      return parentProvides[key]
+    } else if (defaultValue) {
+      if (typeof defaultValue === 'function') {
+        return defaultValue()
+      }
+      return defaultValue
+    }
+  }
+  return currentInstance.provides[key]
+}
+```

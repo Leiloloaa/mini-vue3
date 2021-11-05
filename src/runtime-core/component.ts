@@ -5,13 +5,15 @@ import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
 import { initSlots } from "./componentSlots"
 
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode, parent) {
   const component = {
     vnode,
     type: vnode.type,
     props: {},
     slots: {},
     setupState: {},
+    provides: parent ? parent.provides : {}, // 获取 parent 的 provides 作为当前组件的初始化值 这样就可以继承 parent.provides 的属性了
+    parent,
     emit: () => { }
   }
   // bind 的第一个参数 如果是 undefined 或者 null  那么 this 就是指向 windows

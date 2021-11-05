@@ -6,10 +6,10 @@ import { isOn } from "../shared/index"
 export function render(vnode, container) {
   // 只需要调用 patch 方法
   // 方便后续的递归处理
-  patch(vnode, container)
+  patch(vnode, container, null)
 }
 
-function patch(vnode: any, container: any) {
+function patch(vnode: any, container: any, parentComponent) {
   // TODO 去处理组件
   // 判断什么类型
   // 是 element 那么就应该去处理 element
@@ -29,7 +29,7 @@ function patch(vnode: any, container: any) {
   // Text
   switch (type) {
     case Fragment:
-      processFragment(vnode, container)
+      processFragment(vnode, container, parentComponent)
       break;
     case Text:
       processText(vnode, container)
@@ -37,28 +37,28 @@ function patch(vnode: any, container: any) {
     default:
       // 0001 & 0001 -> 0001
       if (shapeFlag & ShapeFlags.ELEMENT) {
-        processElement(vnode, container)
+        processElement(vnode, container, parentComponent)
       } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-        processComponent(vnode, container)
+        processComponent(vnode, container, parentComponent)
       }
       break;
   }
 }
 
-function processElement(vnode, container) {
+function processElement(vnode, container, parentComponent) {
   // 初始化
-  mountElement(vnode, container)
+  mountElement(vnode, container, parentComponent)
 }
 
-function processComponent(vnode: any, container: any) {
+function processComponent(vnode: any, container: any, parentComponent) {
   // 挂载组件
-  mountComponent(vnode, container)
+  mountComponent(vnode, container, parentComponent)
 }
 
-function mountComponent(initialVNode, container) {
+function mountComponent(initialVNode, container, parentComponent) {
   // 创建组件实例
   // 这个实例上面有很多属性
-  const instance = createComponentInstance(initialVNode)
+  const instance = createComponentInstance(initialVNode, parentComponent)
 
   // 初始化
   setupComponent(instance)
@@ -67,7 +67,7 @@ function mountComponent(initialVNode, container) {
   setupRenderEffect(instance, initialVNode, container)
 }
 
-function mountElement(vnode: any, container: any) {
+function mountElement(vnode: any, container: any, parentComponent) {
   // const el = document.createElement("div")
   // string 或 array
   // el.textContent = "hi , minivue"
@@ -79,7 +79,7 @@ function mountElement(vnode: any, container: any) {
   if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
     el.textContent = children
   } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-    mountChildren(children, el)
+    mountChildren(children, el, parentComponent)
   }
   // props
   const { props } = vnode
@@ -97,12 +97,11 @@ function mountElement(vnode: any, container: any) {
   container.append(el)
 }
 
-function mountChildren(vnode, container) {
+function mountChildren(vnode, container, parentComponent) {
   vnode.forEach((v) => {
-    patch(v, container)
+    patch(v, container, parentComponent)
   })
 }
-
 
 function setupRenderEffect(instance, initialVNode, container) {
   const { proxy } = instance
@@ -114,16 +113,16 @@ function setupRenderEffect(instance, initialVNode, container) {
   // vnode -> patch
   // vnode -> element -> mountElement
 
-  patch(subTree, container)
+  patch(subTree, container, instance)
 
   // 所有的 element -> mount
   initialVNode.el = subTree.el
 }
 
-function processFragment(vnode: any, container: any) {
+function processFragment(vnode: any, container: any, parentComponent) {
   // 此时，拿出 vnode 中的 children
   const { children } = vnode
-  mountChildren(children, container)
+  mountChildren(children, container, parentComponent)
 }
 
 function processText(vnode: any, container: any) {

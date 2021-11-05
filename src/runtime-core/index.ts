@@ -8,3 +8,5 @@ export { renderSlots } from './helpers/renderSlots'
 export { createTextVNode } from './vnode'
 
 export { getCurrentInstance } from '../runtime-core/component'
+
+export { provide, inject } from './apiInject';
