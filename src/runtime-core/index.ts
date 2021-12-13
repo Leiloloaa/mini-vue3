@@ -1,6 +1,4 @@
 // runtime-core 的文件入口
-// 导出的出口文件
-export { createApp } from './createApp'
 
 export { h } from "./h";
 
@@ -11,3 +9,5 @@ export { createTextVNode } from './vnode'
 export { getCurrentInstance } from './component';
 
 export { provide, inject } from './apiInject';
+
+export { createRenderer } from "./renderer";

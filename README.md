@@ -1137,3 +1137,159 @@ function setCurrentInstance(value){
 ```
 
 ## 实现 provide/inject 功能
+
+**用法**
+
+provide/inject 是提供了多层级的通信方式，祖孙隔层级传递。
+
+**实现**
+
+```js
+// component.ts
+// 实例上保存数据
+export function createComponentInstance(vnode, parent) {
+  const component = {
+    vnode,
+    type: vnode.type,
+    setupState: {},
+    props: {},
+    slots: {},
+    provides: parent ? parent.provides : {}, // 一开始是初始化，然后父级存在，就是取父级的
+    parent, // 存储父级component
+    emit: () => { }
+  }
+
+  component.emit = emit.bind(null, component) as any
+  return component
+}
+
+// 新增 apiInject.ts
+import { getCurrentInstance } from "./component";
+
+// provide-inject 提供了组件之间跨层级传递数据 父子、祖孙 等
+export function provide(key, value) {
+  // 存储
+  // 想一下，数据应该存在哪里？
+  // 如果是存在 最外层的 component 中，里面组件都可以访问到了
+  // 接着就要获取组件实例 使用 getCurrentInstance，所以 provide 只能在 setup 中使用
+  const currentInstance: any = getCurrentInstance()
+  if (currentInstance) {
+    let { provides } = currentInstance
+    const parentProvides = currentInstance.parent.provides
+    // 如果当前组件的 provides 等于 父级组件的 provides
+    // 是要 通过 原型链 的方式 去查找
+    // Object.create() 方法创建一个新对象，使用现有的对象来提供新创建的对象的 __proto__
+    if (provides === parentProvides) {
+      provides = currentInstance.provides = Object.create(parentProvides);
+    }
+    provides[key] = value
+  }
+}
+
+export function inject(key, defaultValue: any) {
+  // 取出
+  // 从哪里取？若是 祖 -> 孙，要获取哪里的？？
+  const currentInstance: any = getCurrentInstance()
+  if (currentInstance) {
+    const parentProvides = currentInstance.parent.provides
+    if (key in parentProvides) {
+      return parentProvides[key]
+    } else if (defaultValue) {
+      if (typeof defaultValue === 'function') {
+        return defaultValue()
+      }
+      return defaultValue
+    }
+  }
+  return currentInstance.provides[key]
+}
+```
+
+## 实现自定义渲染器 customRenderer
+
+**要点**
+
+- 实现自定义渲染器的要素就是能够接收不同平台的创建元素
+- 在 mountElement 方法中就不能写死了
+- 用户还需要调用 render 的话，就返回一个 createApp
+- 在 runtime-dom index.ts 中提供用户可传的参数 和 默认的参数
+
+**步骤**
+
+```ts
+// 修改 renderer.ts 文件
+// 使用闭包 createRenderer 函数 包裹所有的函数
+export function createRenderer(options) {
+  const { createElement: hostCreateElement, patchProp: hostPatchProp, insert: hostInsert } = options
+  // ...
+  function mountElement(vnode: any, container: any, parentComponent) {
+    // const el = vnode.el = document.createElement(vnode.type)
+    // canvas
+    // new Element()
+    const el = (vnode.el = hostCreateElement(vnode.type));
+    // children
+    const { children, shapeFlag } = vnode
+    // 可能是 string 也可能是 array
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      el.textContent = children
+    } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      mountChildren(vnode, el, parentComponent)
+    }
+    // props
+    const { props } = vnode
+    for (const key in props) {
+      const val = props[key]
+      // 具体 click -> 通用
+      // on + Event name
+      // onMousedown
+      // if (isOn(key)) {
+      //   const event = key.slice(2).toLocaleLowerCase()
+      //   el.addEventListener(event, val);
+      // } else {
+      //   el.setAttribute(key, val)
+      // }
+      hostPatchProp(el, key, val);
+    }
+    // canvas 添加元素
+    // el.x = 10
+    // container.append(el)
+    // canvas 中添加元素是 addChild()
+    hostInsert(el, container);
+  }
+  // ...
+}
+```
+
+```ts
+// 修改 createApp.ts
+// 因为 render 函数被包裹了所以 调用 createApp 的时候要传入 render
+import { createVNode } from "./vnode"
+
+// 创建组件实例
+export function createAppAPI(render) {
+  return function createApp(rootComponent) {
+    return {
+      // mount 是起到 挂载的作用
+      mount(rootContainer) {
+        // 创建虚拟 dom
+        const vnode = createVNode(rootComponent)
+        // 然后再通过 render 函数渲染
+        render(vnode, rootContainer)
+      }
+    }
+  }
+}
+
+// renderer.ts
+export function createRenderer(options) {
+  // ...
+  return {
+    createApp: createAppAPI(render)
+  }
+}
+```
+
+
+
+
+
