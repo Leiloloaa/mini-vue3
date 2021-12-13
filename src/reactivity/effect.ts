@@ -31,7 +31,7 @@ export class ReactiveEffect {
     // reset 因为是全局变量
     // 处理完要还原
     shouldTrack = false
-
+    activeEffect = null
     return result
   }
   stop() {
@@ -56,6 +56,7 @@ function cleanupEffect(effect) {
 
 const targetsMap = new Map()
 export function track(target, key) {
+  // 是否收集  shouldTrack 为 true 和 activeEffect 有值的时候要收集 否则就 return 出去
   if (!isTracking()) return
 
   // 收集依赖
@@ -114,7 +115,7 @@ export function isTracking() {
   return shouldTrack && activeEffect !== undefined
 }
 
-export function trigger(target, key) {
+export function trigger(target, type, key) {
   // 触发依赖
   let depsMap = targetsMap.get(target)
   let dep = depsMap.get(key)

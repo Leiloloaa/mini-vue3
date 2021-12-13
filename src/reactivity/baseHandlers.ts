@@ -1,6 +1,6 @@
 import { extend, isObject } from "../shared"
 import { track, trigger } from "./effect"
-import { reactive, ReactiveFlags, readonly } from "./reactive"
+import { reactive, ReactiveFlags, reactiveMap, readonly, readonlyMap, shallowReadonlyMap } from "./reactive"
 
 // 缓存 首次创建即可
 const get = createGetter()
@@ -11,11 +11,26 @@ const shallowReadonlyGet = createGetter(true, true)
 // 1、reactive 和 readonly 逻辑相似 抽离代码
 // 2、使用高阶函数 来区分是否要 track
 function createGetter(isReadonly = false, shallow = false) {
-  return function get(target, key) {
+  return function get(target, key, receiver) {
+    const isExistInReactiveMap = () =>
+      key === ReactiveFlags.RAW && receiver === reactiveMap.get(target);
+
+    const isExistInReadonlyMap = () =>
+      key === ReactiveFlags.RAW && receiver === readonlyMap.get(target);
+
+    const isExistInShallowReadonlyMap = () =>
+      key === ReactiveFlags.RAW && receiver === shallowReadonlyMap.get(target);
+
     if (key === ReactiveFlags.IS_REACTIVE) {
       return !isReadonly
     } else if (key === ReactiveFlags.IS_READONLY) {
       return isReadonly
+    } else if (
+      isExistInReactiveMap() ||
+      isExistInReadonlyMap() ||
+      isExistInShallowReadonlyMap()
+    ) {
+      return target;
     }
 
     const res = Reflect.get(target, key)
@@ -41,13 +56,13 @@ function createGetter(isReadonly = false, shallow = false) {
 }
 
 function createSetter() {
-  return function set(target, key, value) {
+  return function set(target, key, value, receiver) {
     // set 操作是会放回 true or false
     // set() 方法应当返回一个布尔值。
     // 返回 true 代表属性设置成功。
     // 在严格模式下，如果 set() 方法返回 false，那么会抛出一个 TypeError 异常。
-    const res = Reflect.set(target, key, value)
-    trigger(target, key)
+    const res = Reflect.set(target, key, value, receiver)
+    trigger(target, "get", key)
     return res
   }
 }
@@ -57,12 +72,12 @@ export const mutableHandlers = {
   set
 };
 
-export const readonlyHandles = {
+export const readonlyHandlers = {
   get: readonlyGet,
-  set(target, key, value) {
+  set(target, key) {
     console.warn(`key:${key}`)
     return true
   }
 };
 
-export const shallowReadonlyHandles = extend({}, readonlyHandles, { get: shallowReadonlyGet });
+export const shallowReadonlyHandlers = extend({}, readonlyHandlers, { get: shallowReadonlyGet });

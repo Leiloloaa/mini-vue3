@@ -1,21 +1,30 @@
 import { isObject } from './../shared/index';
-import { mutableHandlers, readonlyHandles, shallowReadonlyHandles } from './baseHandlers';
+import { mutableHandlers, readonlyHandlers, shallowReadonlyHandlers } from './baseHandlers';
+
+export const reactiveMap = new WeakMap();
+export const readonlyMap = new WeakMap();
+export const shallowReadonlyMap = new WeakMap();
 
 export const enum ReactiveFlags {
   IS_REACTIVE = "__v_isReactive",
-  IS_READONLY = "__v_isReadonly"
+  IS_READONLY = "__v_isReadonly",
+  RAW = "__v_raw"
 };
 
-export function reactive(raw) {
-  return createActiveObject(raw, mutableHandlers)
+export function reactive(target) {
+  return createReactiveObject(target, reactiveMap, mutableHandlers);
 }
 
-export function readonly(raw) {
-  return createActiveObject(raw, readonlyHandles)
+export function readonly(target) {
+  return createReactiveObject(target, readonlyMap, readonlyHandlers);
 }
 
-export function shallowReadonly(raw) {
-  return createActiveObject(raw, shallowReadonlyHandles)
+export function shallowReadonly(target) {
+  return createReactiveObject(
+    target,
+    shallowReadonlyMap,
+    shallowReadonlyHandlers
+  );
 }
 
 export function isReactive(value) {
@@ -35,9 +44,35 @@ export function isProxy(value) {
   return isReactive(value) || isReadonly(value)
 }
 
-function createActiveObject(raw, baseHandlers) {
-  if (!isObject(raw)) {
+export function toRaw(value) {
+  // 如果 value 是proxy 的话 ,那么直接返回就可以了
+  // 因为会触发 createGetter 内的逻辑
+  // 如果 value 是普通对象的话，
+  // 我们就应该返回普通对象
+  // 只要不是 proxy ，只要是得到的 undefined 的话，那么就一定是普通对象
+  // TODO 这里和源码里面实现的不一样，不确定后面会不会有问题
+  if (!value[ReactiveFlags.RAW]) {
+    return value;
+  }
+
+  return value[ReactiveFlags.RAW];
+}
+
+function createReactiveObject(target, proxyMap, baseHandlers) {
+  if (!isObject(target)) {
     console.log('不是一个对象');
   }
-  return new Proxy(raw, baseHandlers)
+  // 核心就是 proxy
+  // 目的是可以侦听到用户 get 或者 set 的动作
+
+  // 如果命中的话就直接返回就好了 不需要每次都重新创建
+  // 使用缓存做的优化点
+  const existingProxy = proxyMap.get(target);
+  if (existingProxy) {
+    return existingProxy;
+  }
+  const proxy = new Proxy(target, baseHandlers);
+  // 把创建好的 proxy 给存起来
+  proxyMap.set(target, proxy);
+  return proxy;
 }

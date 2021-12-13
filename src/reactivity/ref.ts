@@ -1,4 +1,5 @@
 import { hasChanged, isObject } from "../shared";
+import { createDep } from "./dep";
 import { isTracking, trackEffects, triggerEffects } from "./effect";
 import { reactive } from "./reactive";
 
@@ -20,9 +21,10 @@ class RefImpl {
     // 看看 value 是不是 对象
     this._value = convert(value)
 
-    this.dep = new Set()
+    this.dep = createDep()
   }
 
+  // 属性访问器模式
   get value() {
     // 确保调用过 run 方法 不然 dep 就是 undefined
     // if (isTracking()) {
