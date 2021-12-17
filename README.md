@@ -1427,3 +1427,129 @@ export function inject(key, defaultValue: any) {
   return currentInstance.provides[key]
 }
 ```
+
+## 实现自定义渲染器 customRenderer
+
+**要点**
+
+- 实现自定义渲染器的要素就是能够接收不同平台的创建元素
+  - 不仅仅是 DOM 元素 比如 canvas 元素也是可以的
+- mountElement 方法中就不能写死了
+- 用户需要调用 render 的话，就定义一个 createApp
+- 新创建 runtime-dom index.ts 文件，并且提供用户 可传的参数 和 默认的参数
+
+**步骤**
+
+```ts
+// 修改 renderer.ts 文件
+// 使用闭包 createRenderer 函数 包裹所有的函数
+export function createRenderer(options) {
+  const { createElement: hostCreateElement, patchProp: hostPatchProp, insert: hostInsert } = options
+  // ...
+  function mountElement(vnode: any, container: any, parentComponent) {
+    // const el = vnode.el = document.createElement(vnode.type)
+    // canvas
+    // new Element()
+    const el = (vnode.el = hostCreateElement(vnode.type));
+    // children
+    const { children, shapeFlag } = vnode
+    // 可能是 string 也可能是 array
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      el.textContent = children
+    } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      mountChildren(vnode, el, parentComponent)
+    }
+    // props
+    const { props } = vnode
+    for (const key in props) {
+      const val = props[key]
+      // 具体 click -> 通用
+      // on + Event name
+      // onMousedown
+      // if (isOn(key)) {
+      //   const event = key.slice(2).toLocaleLowerCase()
+      //   el.addEventListener(event, val);
+      // } else {
+      //   el.setAttribute(key, val)
+      // }
+      hostPatchProp(el, key, val);
+    }
+    // canvas 添加元素
+    // el.x = 10
+    // container.append(el)
+    // canvas 中添加元素是 addChild()
+    hostInsert(el, container);
+  }
+  // ...
+}
+```
+
+```ts
+// 修改 createApp.ts
+// 因为 render 函数被包裹了所以 调用 createApp 的时候要传入 render
+import { createVNode } from "./vnode"
+
+// 创建组件实例
+export function createAppAPI(render) {
+  return function createApp(rootComponent) {
+    return {
+      // mount 是起到 挂载的作用
+      mount(rootContainer) {
+        // 创建虚拟 dom
+        const vnode = createVNode(rootComponent)
+        // 然后再通过 render 函数渲染
+        render(vnode, rootContainer)
+      }
+    }
+  }
+}
+
+// renderer.ts
+export function createRenderer(options) {
+  // ...
+  return {
+    createApp: createAppAPI(render)
+  }
+}
+```
+
+**重点步骤**
+
+```ts
+// 新增 runtime-dom index.ts 文件
+import { createRenderer } from "..";
+import { isOn } from "../shared";
+
+function createElement(type) {
+  return document.createElement(type)
+}
+
+function patchProp(el, key, val) {
+  if (isOn(key)) {
+    const event = key.slice(2).toLowerCase()
+    el.addEventListener(event, val);
+  } else {
+    el.setAttribute(key, val)
+  }
+}
+
+function insert(el, parent) {
+  parent.append(el)
+}
+
+// 调用 renderer.ts 中的 createRenderer
+// 可以自行传入，有默认值
+const renderer: any = createRenderer({
+  createElement,
+  patchProp,
+  insert
+})
+
+// 这样用户就可以正常的使用 createApp 了
+export function createApp(...args) {
+  return renderer.createApp(...args)
+}
+
+// 并且让 runtime-core 作为 runtime-dom 的子级
+export * from '../runtime-core';
+```
