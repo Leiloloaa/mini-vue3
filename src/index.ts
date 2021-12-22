@@ -3,3 +3,4 @@
 // export * from './runtime-core'
 // dom 在 core 之上
 export * from './runtime-dom';
+export * from "./reactivity"

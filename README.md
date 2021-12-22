@@ -1289,7 +1289,150 @@ export function createRenderer(options) {
 }
 ```
 
+**重点步骤**
 
+```ts
+// 新增 runtime-dom index.ts 文件
+import { createRenderer } from "..";
+import { isOn } from "../shared";
 
+function createElement(type) {
+  return document.createElement(type)
+}
 
+function patchProp(el, key, val) {
+  if (isOn(key)) {
+    const event = key.slice(2).toLowerCase()
+    el.addEventListener(event, val);
+  } else {
+    el.setAttribute(key, val)
+  }
+}
 
+function insert(el, parent) {
+  parent.append(el)
+}
+
+// 调用 renderer.ts 中的 createRenderer
+// 可以自行传入，有默认值
+const renderer: any = createRenderer({
+  createElement,
+  patchProp,
+  insert
+})
+
+// 这样用户就可以正常的使用 createApp 了
+export function createApp(...args) {
+  return renderer.createApp(...args)
+}
+
+// 并且让 runtime-core 作为 runtime-dom 的子级
+export * from '../runtime-core';
+```
+
+## 更新逻辑
+
+### 修改1
+
+```ts
+// reactivity index 导出 ref
+export { ref, proxyRefs } from './ref';
+// 项目入口 ./src/index.ts 导出
+export * from "./reactivity"
+```
+
+然后结合例子 就能 将例子运行起来了 然后还需要 处理 setup 返回得值 拆箱
+
+```ts
+// runtime-core component.ts
+function handleSetupResult(instance: any, setupResult: any) {
+  // TODO function
+  if (isObject(setupResult)) {
+    // 拆箱
+    instance.setupState = proxyRefs(setupResult)
+  }
+  finishComponentSetup(instance)
+}
+```
+
+页面能正常显示了 就要修改 patch 逻辑
+
+```ts
+// 修改 patch 逻辑
+// 再增加其它几个函数的参数 初始就传 null
+function patch(n1, n2, container: any, parentComponent) {
+  const { type, shapeFlag } = n2
+  switch (type) {
+    case Fragment:
+      processFragment(n1, n2, container, parentComponent)
+      break;
+    case Text:
+      processText(n1, n2, container)
+      break;
+    default:
+      // 通过 vnode.type 的类型判断
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(n1, n2, container, parentComponent)
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(n1, n2, container, parentComponent)
+      }
+      break;
+  }
+}
+
+// 修改 processElement
+function processElement(n1, n2: any, container: any, parentComponent) {
+  if (!n1) {
+    mountElement(n2, container, parentComponent);
+  } else {
+    patchElement(n1, n2, container);
+  }
+}
+```
+
+使用 effect 让其变成响应式 并且增加一个变量 表示是否为初始
+
+```ts
+// 修改 renderer.ts 中的 setupRenderEffect 函数
+function setupRenderEffect(instance: any, initialVNode, container: any) {
+  effect(() => {
+    // 是否为 init
+    if (!instance.isMounted) {
+      console.log("init");
+      const { proxy } = instance;
+      const subTree = (instance.subTree = instance.render.call(proxy));
+
+      patch(null, subTree, container, instance);
+
+      initialVNode.el = subTree.el;
+
+      instance.isMounted = true;
+    } else {
+      console.log("update");
+      const { proxy } = instance;
+      const subTree = instance.render.call(proxy);
+      const prevSubTree = instance.subTree;
+      instance.subTree = subTree;
+
+      patch(prevSubTree, subTree, container, instance);
+    }
+  });
+}
+```
+
+修改 tsconfig.json => "target": "es2016" 如果是 es5 for of 方法就会有问题，断点调试后 发现不会进入这个 for 循环
+
+```ts
+export function triggerEffects(dep) {
+  // debugger
+  // es5 模式下 不会进来
+  // 要修改 tsconfig.json 文件 改为 es2016
+  for (const effect of dep) {
+    if (effect.scheduler) {
+      effect.scheduler()
+    } else {
+      effect.run()
+    }
+  }
+}
+```

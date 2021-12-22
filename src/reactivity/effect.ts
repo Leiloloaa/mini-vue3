@@ -119,6 +119,9 @@ export function trigger(target, key) {
 }
 
 export function triggerEffects(dep) {
+  // debugger
+  // es5 模式下 不会进来
+  // 要修改 tsconfig.json 文件 改为 es2016
   for (const effect of dep) {
     if (effect.scheduler) {
       effect.scheduler()

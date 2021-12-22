@@ -4,6 +4,7 @@ import { emit } from "./componentEmit"
 import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandles } from "./componentPublicInstance"
 import { initSlots } from './componentSlots';
+import { proxyRefs } from '../reactivity/ref';
 
 export function createComponentInstance(vnode, parent) {
   const component = {
@@ -14,6 +15,8 @@ export function createComponentInstance(vnode, parent) {
     slots: {},
     provides: parent ? parent.provides : {}, // 一开始是初始化，然后父级存在，就是取父级的
     parent, // 存储父级component
+    subTree: {},
+    isMounted: false,
     emit: () => { }
   }
 
@@ -46,7 +49,7 @@ function setupStatefulComponent(instance) {
 function handleSetupResult(instance: any, setupResult: any) {
   // TODO function
   if (isObject(setupResult)) {
-    instance.setupState = setupResult
+    instance.setupState = proxyRefs(setupResult)
   }
 
   finishComponentSetup(instance)
