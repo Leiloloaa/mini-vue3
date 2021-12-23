@@ -87,6 +87,40 @@ export function createRenderer(options) {
   function patchElement(n1, n2, container) {
     console.log("n1", n1);
     console.log("n2", n2);
+
+    // 新老节点
+    const oldProps = n1.props || {}
+    const newProps = n2.props || {}
+
+    // n1 是老的虚拟节点 上有 el 在 mountElement 有赋值
+    // 同时 要赋值 到 n2 上面 因为 mountElement 只有初始
+    const el = (n2.el = n1.el)
+
+    patchProps(el, oldProps, newProps)
+  }
+
+  function patchProps(el, oldProps: any, newProps: any) {
+    // 比较新老节点 不等于才处理 这属于健壮比较逻辑
+    if (oldProps !== newProps) {
+      for (const key in newProps) {
+        const prevProp = oldProps[key]
+        const nextProp = newProps[key]
+        // 拿到每一项之后 去比较
+        // 首先要拿到 el
+        if (prevProp !== nextProp) {
+          hostPatchProp(el, key, prevProp, nextProp);
+        }
+      }
+
+      // 处理 undefined 和 null 的情况
+      if (oldProps !== {}) {
+        for (const key in oldProps) {
+          if (!(key in newProps)) {
+            hostPatchProp(el, key, oldProps[key], null)
+          }
+        }
+      }
+    }
   }
 
   function mountElement(vnode: any, container: any, parentComponent) {
@@ -117,7 +151,7 @@ export function createRenderer(options) {
       // } else {
       //   el.setAttribute(key, val)
       // }
-      hostPatchProp(el, key, val);
+      hostPatchProp(el, key, null, val);
     }
 
     // canvas 添加元素

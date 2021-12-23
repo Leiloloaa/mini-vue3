@@ -1436,3 +1436,84 @@ export function triggerEffects(dep) {
   }
 }
 ```
+
+## 更新 element 的 props
+
+**常见的更新 props 逻辑**
+
+1、old value 值 改变了，就需要复用节点，只改变值
+2、props 变为 null 或者是 undefined，就是删除
+3、如果 props 中的属性不存在了，就直接移除
+
+```ts
+// 首先因为每次修改 响应式都会处理 element
+// 在 processElement 的时候就会判断
+// 如果是传入的 n1 存在 那就是新建 否则是更新
+// 更新 patchElement 又得进行两个节点的对比
+function processElement(n1, n2: any, container: any, parentComponent) {
+  // 如果 n1 不存在就是新建 否则是更新
+  if (!n1) {
+    mountElement(n2, container, parentComponent);
+  } else {
+    patchElement(n1, n2, container);
+  }
+}
+
+function patchElement(n1, n2, container) {
+  console.log("n1", n1);
+  console.log("n2", n2);
+
+  // 新老节点
+  const oldProps = n1.props || {}
+  const newProps = n2.props || {}
+
+  // n1 是老的虚拟节点 上有 el 在 mountElement 有赋值
+  // 同时 要赋值 到 n2 上面 因为 mountElement 只有初始
+  const el = (n2.el = n1.el)
+
+  patchProps(el, oldProps, newProps)
+}
+
+// 比较 主要是三种情况
+function patchProps(el, oldProps: any, newProps: any) {
+  // 比较新老节点 不等于才处理 这属于健壮比较逻辑
+  if (oldProps !== newProps) {
+    for (const key in newProps) {
+      const prevProp = oldProps[key]
+      const nextProp = newProps[key]
+      // 拿到每一项之后 去比较
+      // 首先要拿到 el
+      if (prevProp !== nextProp) {
+        hostPatchProp(el, key, prevProp, nextProp);
+      }
+    }
+
+    // 处理 undefined 和 null 的情况
+    if (oldProps !== {}) {
+      for (const key in oldProps) {
+        if (!(key in newProps)) {
+          hostPatchProp(el, key, oldProps[key], null)
+        }
+      }
+    }
+  }
+}
+```
+
+然后需要修改 runtime-dom 中的 hostPatchProp
+
+```ts
+// 如果不存在就要删除 否则替换 prop
+function patchProp(el, key, prevVal, nextVal) {
+  if (isOn(key)) {
+    const event = key.slice(2).toLocaleLowerCase()
+    el.addEventListener(event, nextVal)
+  } else {
+    if (nextVal === undefined || nextVal === null) {
+      el.removeAttribute(key)
+    } else {
+      el.setAttribute(key, nextVal)
+    }
+  }
+}
+```
