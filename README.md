@@ -1439,6 +1439,8 @@ export function triggerEffects(dep) {
 
 ## 更新 element 的 props
 
+![](http://66.152.176.25:8000/home/images/diff/props.png)
+
 **常见的更新 props 逻辑**
 
 1、old value 值 改变了，就需要复用节点，只改变值
@@ -1516,4 +1518,81 @@ function patchProp(el, key, prevVal, nextVal) {
     }
   }
 }
+```
+
+## 更新 children 前奏 
+
+![](http://66.152.176.25:8000/home/images/diff/children1.png)
+
+如上图所示，一般有四种情况，前三种比较好处理，最后一种就需要考虑到性能!
+
+**增加 patchChildren 函数**
+
+```ts
+function patchChildren(n1, n2, container, parentComponent) {
+  // 主要有四种情况
+  // text => array
+  // array => text
+  // text => new text
+  // array => new array
+  // TODO 通过什么来知道子组件的类型呢？
+  // 通过 shapeFlag 可以知道
+  const prevShapeFlag = n1.shapeFlag
+  const c1 = n1.children
+  const { shapeFlag } = n2
+  const c2 = n2.children
+  // 如果 现在是 text
+  if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+    if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      // 卸载
+      unmountChildren(n1.children)
+    }
+    // 如果内容不等
+    if (c1 !== c2) {
+      // 渲染接口
+      hostSetElementText(container, c2);
+    }
+  } else {
+    // 如果 现在是 array
+    if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      hostSetElementText(container, "");
+      mountChildren(c2, container, parentComponent);
+    }
+  }
+}
+
+function unmountChildren(children) {
+  for (let i = 0; i < children.length; i++) {
+    const el = children[i].el;
+    // 移除
+    hostRemove(el)
+  }
+}
+```
+
+其中涉及到 卸载组件 unmountChildren 函数、hostSetElementText 渲染函数 这个我们统一放置在 runtime-dom 中、hostRemove 也是一样
+
+**runtime-dom**
+
+```ts
+function remove(child) {
+  // 拿到父级节点 然后删除子节点
+  // 调用原生 dom 删除节点
+  const parent = child.parentNode
+  if (parent) {
+    parent.removeChild(child)
+  }
+}
+
+function setElementText(el, text) {
+  el.textContent = text;
+}
+
+const renderer: any = createRenderer({
+  createElement,
+  patchProp,
+  insert,
+  remove,
+  setElementText
+})
 ```

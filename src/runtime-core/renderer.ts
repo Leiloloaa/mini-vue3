@@ -6,7 +6,13 @@ import { createAppAPI } from './createApp';
 import { effect } from '../reactivity/effect';
 
 export function createRenderer(options) {
-  const { createElement: hostCreateElement, patchProp: hostPatchProp, insert: hostInsert } = options
+  const {
+    createElement: hostCreateElement,
+    patchProp: hostPatchProp,
+    insert: hostInsert,
+    remove: hostRemove,
+    setElementText: hostSetElementText,
+  } = options
 
   function render(vnode, container) {
     // patch 的作用就是循环遍历
@@ -80,11 +86,11 @@ export function createRenderer(options) {
     if (!n1) {
       mountElement(n2, container, parentComponent);
     } else {
-      patchElement(n1, n2, container);
+      patchElement(n1, n2, container, parentComponent);
     }
   }
 
-  function patchElement(n1, n2, container) {
+  function patchElement(n1, n2, container, parentComponent) {
     console.log("n1", n1);
     console.log("n2", n2);
 
@@ -95,8 +101,47 @@ export function createRenderer(options) {
     // n1 是老的虚拟节点 上有 el 在 mountElement 有赋值
     // 同时 要赋值 到 n2 上面 因为 mountElement 只有初始
     const el = (n2.el = n1.el)
-
+    patchChildren(n1, n2, el, parentComponent)
     patchProps(el, oldProps, newProps)
+  }
+
+  function patchChildren(n1, n2, container, parentComponent) {
+    // 主要有四种情况
+    // text => array
+    // array => text
+    // text => new text
+    // array => new array
+    // TODO 通过什么来知道子组件的类型呢？
+    // 通过 shapeFlag 可以知道
+    const prevShapeFlag = n1.shapeFlag
+    const c1 = n1.children
+    const { shapeFlag } = n2
+    const c2 = n2.children
+    // 如果 现在是 text
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+        // 卸载
+        unmountChildren(n1.children)
+      }
+      // 如果内容不等
+      if (c1 !== c2) {
+        hostSetElementText(container, c2);
+      }
+    } else {
+      // 如果 现在是 array
+      if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+        hostSetElementText(container, "");
+        mountChildren(c2, container, parentComponent);
+      }
+    }
+  }
+
+  function unmountChildren(children) {
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i].el;
+      // 移除
+      hostRemove(el)
+    }
   }
 
   function patchProps(el, oldProps: any, newProps: any) {
@@ -135,7 +180,7 @@ export function createRenderer(options) {
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       el.textContent = children
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      mountChildren(vnode, el, parentComponent)
+      mountChildren(vnode.children, el, parentComponent)
     }
 
     // props
@@ -162,15 +207,15 @@ export function createRenderer(options) {
     hostInsert(el, container);
   }
 
-  function mountChildren(vnode: any, container: any, parentComponent) {
-    vnode.children.forEach((v) => {
+  function mountChildren(children: any, container: any, parentComponent) {
+    children.forEach((v) => {
       patch(null, v, container, parentComponent)
     });
   }
 
   function processFragment(n1, n2: any, container: any, parentComponent) {
     // 通过 mountChildren 去依次遍历
-    mountChildren(n2, container, parentComponent)
+    mountChildren(n2.children, container, parentComponent)
   }
 
   function processText(n1, n2: any, container: any) {
