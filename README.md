@@ -1207,6 +1207,8 @@ export function inject(key, defaultValue: any) {
 
 ## 实现自定义渲染器 customRenderer
 
+**如果一个框架想要实现实现跨端的功能，那么渲染器本身不能依赖任何平台下特有的接口**
+
 **要点**
 
 - 实现自定义渲染器的要素就是能够接收不同平台的创建元素
