@@ -6,7 +6,13 @@ import { effect } from '../reactivity/effect';
 
 // 使用闭包 createRenderer 函数 包裹所有的函数
 export function createRenderer(options) {
-  const { createElement: hostCreateElement, patchProp: hostPatchProp, insert: hostInsert } = options
+  const {
+    createElement: hostCreateElement,
+    patchProp: hostPatchProp,
+    insert: hostInsert,
+    remove: hostRemove,
+    setElementText: hostSetElementText
+  } = options
 
   function render(vnode, container) {
     // 只需要调用 patch 方法
@@ -75,9 +81,49 @@ export function createRenderer(options) {
     // 同时 要赋值 到 n2 上面 因为 mountElement 只有初始
     const el = (n2.el = n1.el)
 
-    // 对比
+    // 处理
+    patchChildren(n1, n2, el, parentComponent)
     patchProps(el, oldProps, newProps)
   }
+
+  function patchChildren(n1, n2, container, parentComponent) {
+    // 常见有四种情况
+    // array => text
+    // text => array
+    // text => text
+    // array => array
+    // 如何知道类型呢？ 通过 shapeFlag
+    const prevShapeFlag = n1.shapeFlag
+    const c1 = n1.children
+    const { shapeFlag } = n2
+    const c2 = n2.children
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+        // 1、要卸载原来的组件
+        unmountChildren(n1.children)
+        // 2、将 text 挂载上去
+      }
+      if (c1 !== c2) {
+        hostSetElementText(container, c2)
+      }
+    } else {
+      // 现在是 array 的情况
+      if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+        // 1、原先的 text 清空
+        hostSetElementText(container, '')
+        // 2、挂载现在的 array
+        mountChildren(c2, container, parentComponent)
+      }
+    }
+
+  }
+
+  function unmountChildren(children) {
+    for (let i = 0; i < children.length; i++) {
+      hostRemove(children[i].el)
+    }
+  }
+
 
   function patchProps(el, oldProps, newProps) {
     // 常见的有三种情况

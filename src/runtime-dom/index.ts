@@ -22,11 +22,27 @@ function insert(el, parent) {
   parent.append(el)
 }
 
+function remove(child) {
+  // 拿到父级节点 然后删除子节点
+  // 调用原生 dom 删除节点
+  const parent = child.parentNode
+  if (parent) {
+    parent.removeChild(child);
+  }
+}
+
+function setElementText(el, text) {
+  el.textContent = text
+}
+
+
 // 调用 renderer.ts 中的 createRenderer
 const renderer: any = createRenderer({
   createElement,
   patchProp,
-  insert
+  insert,
+  remove,
+  setElementText
 })
 
 // 这样用户就可以正常的使用 createApp 了
