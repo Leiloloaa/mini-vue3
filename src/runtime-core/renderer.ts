@@ -2,6 +2,7 @@ import { Fragment, Text } from './vnode';
 import { createComponentInstance, setupComponent } from "./component"
 import { ShapeFlags } from "../shared/shapeFlags"
 import { createAppAPI } from './createApp';
+import { effect } from '..';
 
 // 使用闭包 createRenderer 函数 包裹所有的函数
 export function createRenderer(options) {
@@ -10,10 +11,10 @@ export function createRenderer(options) {
   function render(vnode, container) {
     // 只需要调用 patch 方法
     // 方便后续的递归处理
-    patch(vnode, container, null)
+    patch(null, vnode, container, null)
   }
 
-  function patch(vnode: any, container: any, parentComponent) {
+  function patch(n1, n2: any, container: any, parentComponent) {
     // TODO 去处理组件
     // 判断什么类型
     // 是 element 那么就应该去处理 element
@@ -24,7 +25,7 @@ export function createRenderer(options) {
 
     // debugger
 
-    const { type, shapeFlag } = vnode
+    const { type, shapeFlag } = n2
     // 根据 type 来渲染
     // console.log(type);
     // Object
@@ -33,26 +34,36 @@ export function createRenderer(options) {
     // Text
     switch (type) {
       case Fragment:
-        processFragment(vnode, container, parentComponent)
+        processFragment(n2, container, parentComponent)
         break;
       case Text:
-        processText(vnode, container)
+        processText(n2, container)
         break;
       default:
         // 0001 & 0001 -> 0001
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(vnode, container, parentComponent)
+          processElement(n1, n2, container, parentComponent)
         } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-          processComponent(vnode, container, parentComponent)
+          processComponent(n2, container, parentComponent)
         }
         break;
     }
   }
 
-  function processElement(vnode, container, parentComponent) {
-    // 初始化
-    mountElement(vnode, container, parentComponent)
+  function processElement(n1, n2, container, parentComponent) {
+    if (!n1) {
+      // 初始化
+      mountElement(n2, container, parentComponent)
+    } else {
+      patchElement(n1, n2, container, parentComponent)
+    }
   }
+
+  function patchElement(n1, n2, container, parentComponent) {
+    console.log('n1', n1);
+    console.log(n2);
+  }
+
 
   function processComponent(vnode: any, container: any, parentComponent) {
     // 挂载组件
@@ -115,26 +126,38 @@ export function createRenderer(options) {
     hostInsert(el, container)
   }
 
-  function mountChildren(vnode, container, parentComponent) {
-    vnode.forEach((v) => {
-      patch(v, container, parentComponent)
+  function mountChildren(children, container, parentComponent) {
+    children.forEach((v) => {
+      patch(null, v, container, parentComponent)
     })
   }
 
   function setupRenderEffect(instance, initialVNode, container) {
-    const { proxy } = instance
-    // 虚拟节点树
-    // 一开始是创建在 instance 上
-    // 在这里就绑定 this
-    const subTree = instance.render.call(proxy)
-
-    // vnode -> patch
-    // vnode -> element -> mountElement
-
-    patch(subTree, container, instance)
-
-    // 所有的 element -> mount
-    initialVNode.el = subTree.el
+    effect(() => {
+      if (!instance.isMount) {
+        console.log('init');
+        const { proxy } = instance
+        // 虚拟节点树
+        // 一开始是创建在 instance 上
+        // 在这里就绑定 this
+        const subTree = instance.subTree = instance.render.call(proxy)
+        // vnode -> patch
+        // vnode -> element -> mountElement
+        patch(null, subTree, container, instance)
+        // 所有的 element -> mount
+        initialVNode.el = subTree.el
+        instance.isMount = true
+      } else {
+        console.log('update');
+        const { proxy } = instance
+        // 当前的虚拟节点树
+        const subTree = instance.render.call(proxy)
+        // 老的虚拟节点树
+        const prevSubTree = instance.subTree
+        instance.subTree = subTree
+        patch(prevSubTree, subTree, container, instance)
+      }
+    })
   }
 
   function processFragment(vnode: any, container: any, parentComponent) {

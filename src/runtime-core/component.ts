@@ -4,6 +4,7 @@ import { emit } from "./componentEmit"
 import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
 import { initSlots } from "./componentSlots"
+import { proxyRefs } from '../reactivity';
 
 export function createComponentInstance(vnode, parent) {
   const component = {
@@ -14,6 +15,8 @@ export function createComponentInstance(vnode, parent) {
     setupState: {},
     provides: parent ? parent.provides : {}, // 获取 parent 的 provides 作为当前组件的初始化值 这样就可以继承 parent.provides 的属性了
     parent,
+    isMount: false,
+    subTree: {}, // 更新了 要挂载老的树
     emit: () => { }
   }
   // bind 的第一个参数 如果是 undefined 或者 null  那么 this 就是指向 windows
@@ -61,7 +64,7 @@ function handleSetupResult(instance, setupResult: any) {
   // TODO function
 
   if (isObject(setupResult)) {
-    instance.setupState = setupResult
+    instance.setupState = proxyRefs(setupResult)
   }
 
   finishComponentSetup(instance)
