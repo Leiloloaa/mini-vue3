@@ -2,7 +2,7 @@ import { Fragment, Text } from './vnode';
 import { createComponentInstance, setupComponent } from "./component"
 import { ShapeFlags } from "../shared/shapeFlags"
 import { createAppAPI } from './createApp';
-import { effect } from '..';
+import { effect } from '../reactivity/effect';
 
 // 使用闭包 createRenderer 函数 包裹所有的函数
 export function createRenderer(options) {
@@ -34,22 +34,26 @@ export function createRenderer(options) {
     // Text
     switch (type) {
       case Fragment:
-        processFragment(n2, container, parentComponent)
+        processFragment(n1, n2, container, parentComponent)
         break;
       case Text:
-        processText(n2, container)
+        processText(n1, n2, container)
         break;
       default:
         // 0001 & 0001 -> 0001
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(n1, n2, container, parentComponent)
         } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-          processComponent(n2, container, parentComponent)
+          processComponent(n1, n2, container, parentComponent)
         }
         break;
     }
   }
 
+  // 首先因为每次修改 响应式都会处理 element
+  // 在 processElement 的时候就会判断
+  // 如果是传入的 n1 存在 那就是新建 否则是更新
+  // 更新 patchElement 又得进行两个节点的对比
   function processElement(n1, n2, container, parentComponent) {
     if (!n1) {
       // 初始化
@@ -60,14 +64,50 @@ export function createRenderer(options) {
   }
 
   function patchElement(n1, n2, container, parentComponent) {
-    console.log('n1', n1);
-    console.log(n2);
+    console.log("n1", n1);
+    console.log("n2", n2);
+
+    // 新老节点
+    const oldProps = n1.props || {}
+    const newProps = n2.props || {}
+
+    // n1 是老的虚拟节点 上有 el 在 mountElement 有赋值
+    // 同时 要赋值 到 n2 上面 因为 mountElement 只有初始
+    const el = (n2.el = n1.el)
+
+    // 对比
+    patchProps(el, oldProps, newProps)
   }
 
+  function patchProps(el, oldProps, newProps) {
+    // 常见的有三种情况
+    // 值改变了 => 删除
+    // 值变成了 null 或 undefined  => 删除
+    // 增加了 => 增加
+    if (oldProps !== newProps) {
+      for (const key in newProps) {
+        const prevProp = oldProps[key]
+        const nextProp = newProps[key]
+        if (prevProp !== nextProp) {
+          hostPatchProp(el, key, prevProp, nextProp)
+        }
+      }
+    }
 
-  function processComponent(vnode: any, container: any, parentComponent) {
+    // 处理值 变成 null 或 undefined 的情况
+    // 新的就不会有 所以遍历老的 oldProps 看是否存在于新的里面
+    if (oldProps !== {}) {
+      for (const key in oldProps) {
+        if (!(key in newProps)) {
+          hostPatchProp(el, key, oldProps[key], null)
+        }
+      }
+    }
+  }
+
+  function processComponent(n1, n2: any, container: any, parentComponent) {
     // 挂载组件
-    mountComponent(vnode, container, parentComponent)
+    mountComponent(n2, container, parentComponent)
   }
 
   function mountComponent(initialVNode, container, parentComponent) {
@@ -115,7 +155,7 @@ export function createRenderer(options) {
       // } else {
       //   el.setAttribute(key, val)
       // }
-      hostPatchProp(el, key, val)
+      hostPatchProp(el, key, null, val)
     }
 
     // 修改三 canvas 添加元素
@@ -160,18 +200,17 @@ export function createRenderer(options) {
     })
   }
 
-  function processFragment(vnode: any, container: any, parentComponent) {
+  function processFragment(n1, n2: any, container: any, parentComponent) {
     // 此时，拿出 vnode 中的 children
-    const { children } = vnode
-    mountChildren(children, container, parentComponent)
+    mountChildren(n2.children, container, parentComponent)
   }
 
-  function processText(vnode: any, container: any) {
+  function processText(n1, n2: any, container: any) {
     // console.log(vnode);
     // 文本内容 在 children 中
-    const { children } = vnode
+    const { children } = n2
     // 创建文本节点
-    const textNode = vnode.el = document.createTextNode(children)
+    const textNode = n2.el = document.createTextNode(children)
     // 挂载到容器中
     container.append(textNode);
   }
