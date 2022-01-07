@@ -18,8 +18,10 @@ function patchProp(el, key, prevVal, nextVal) {
   }
 }
 
-function insert(el, parent) {
-  parent.append(el)
+function insert(child, parent, anchor) {
+  // insertBefore 是把指定的元素添加到指定的位置
+  // 如果没有传入 anchor 那就相当于 append(child)
+  parent.insertBefore(child, anchor || null)
 }
 
 function remove(child) {
