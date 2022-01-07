@@ -126,31 +126,35 @@ export function createRenderer(options) {
     let i = 0  // 从新的节点开始
     let e1 = c1.length - 1 // 老的最后一个 索引值
     let e2 = len2 - 1 // 新的最后一个 索引值
+
+    function isSomeVNodeType(n1, n2) {
+      // 对比节点是否相等 可以通过 type 和 key
+      return n1.type === n2.type && n1.key === n2.key
+    }
+
+    debugger
     // 左侧对比 移动 i 指针
     while (i <= e1 && i <= e2) {
-      const n1 = c1[i]
-      const n2 = c2[i]
+      const n1 = c1[i];
+      const n2 = c2[i];
       if (isSomeVNodeType(n1, n2)) {
-        patch(n1, n2, container, parentComponent, parentAnchor)
+        patch(n1, n2, container, parentComponent, parentAnchor);
       } else {
-        // 不相等就可以结束循环
         break;
       }
-      i++
+      i++;
     }
-    // debugger
     // 右侧对比 移动 e1 和 e2 指针
     while (i <= e1 && i <= e2) {
-      const n1 = c1[e1]
-      const n2 = c2[e2]
+      const n1 = c1[e1];
+      const n2 = c2[e2];
       if (isSomeVNodeType(n1, n2)) {
-        patch(n1, n2, container, parentComponent, parentAnchor)
+        patch(n1, n2, container, parentComponent, parentAnchor);
       } else {
-        // 不相等就可以结束循环
         break;
       }
-      e1--
-      e2--
+      e1--;
+      e2--;
     }
     // 对比完两侧后 就要处理以下几种情况
     // 新的比老的多 创建
@@ -177,12 +181,61 @@ export function createRenderer(options) {
       }
     } else {
       // 乱序部分
-    }
-  }
+      // 遍历老节点 然后检查在新的里面是否存在
+      // 方案一 同时遍历新的 时间复杂度 O(n*n)
+      // 方案二 新的节点建立一个映射表 时间复杂度 O(1) 只要根据 key 去查是否存在
+      // 为了性能最优 选则方案二
+      let s1 = i // i 是停止的位置 差异开始的地方
+      let s2 = i
 
-  function isSomeVNodeType(n1, n2) {
-    // 对比节点是否相等 可以通过 type 和 key
-    return n1.type === n2.type && n1.key === n2.key
+      // 如果新的节点少于老的节点，当遍历完新的之后，就不需要再遍历了
+      // 通过一个总数和一个遍历次数 来优化
+      // 要遍历的数量
+      const toBePatched = e2 - s2 + 1
+      // 已经遍历的数量
+      let patched = 0
+
+      // 建立新节点的映射表
+      const keyToNewIndexMap = new Map()
+      // 循环 e2
+      for (let i = s2; i <= e2; i++) {
+        const nextChild = c2[i];
+        keyToNewIndexMap.set(nextChild.key, i)
+      }
+
+      // 循环 e1
+      for (let i = s1; i <= e1; i++) {
+        const prevChild = c1[i];
+
+        if (patched >= toBePatched) {
+          hostRemove(prevChild.el)
+          continue
+        }
+
+        let newIndex
+        if (prevChild.key !== null) {
+          // 用户输入 key
+          newIndex = keyToNewIndexMap.get(prevChild.key)
+        } else {
+          // 用户没有输入 key
+          for (let j = s2; j < e2; j++) {
+            if (isSomeVNodeType(prevChild, c2[j])) {
+              newIndex = j;
+              break;
+            }
+          }
+        }
+
+        if (newIndex === undefined) {
+          hostRemove(prevChild.el)
+        } else {
+          // 存在就再次深度对比
+          patch(prevChild, c2[newIndex], container, parentComponent, null)
+          // patch 完就证明已经遍历完一个新的节点
+          patched++
+        }
+      }
+    }
   }
 
   function unmountChildren(children) {
