@@ -4,6 +4,7 @@ import { ShapeFlags } from "../shared/shapeFlags"
 import { createAppAPI } from './createApp';
 import { effect } from '../reactivity/effect';
 import { shouldUpdateComponent } from './componentUpdateUtils';
+import { queueJobs } from './scheduler';
 
 // 使用闭包 createRenderer 函数 包裹所有的函数
 export function createRenderer(options) {
@@ -437,6 +438,10 @@ export function createRenderer(options) {
         const prevSubTree = instance.subTree
         instance.subTree = subTree
         patch(prevSubTree, subTree, container, instance, anchor)
+      }
+    }, {
+      scheduler() {
+        queueJobs(instance.update)
       }
     })
   }
