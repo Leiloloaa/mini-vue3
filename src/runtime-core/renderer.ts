@@ -3,6 +3,7 @@ import { createComponentInstance, setupComponent } from "./component"
 import { ShapeFlags } from "../shared/shapeFlags"
 import { createAppAPI } from './createApp';
 import { effect } from '../reactivity/effect';
+import { shouldUpdateComponent } from './componentUpdateUtils';
 
 // 使用闭包 createRenderer 函数 包裹所有的函数
 export function createRenderer(options) {
@@ -315,14 +316,37 @@ export function createRenderer(options) {
   }
 
   function processComponent(n1, n2: any, container: any, parentComponent, anchor) {
-    // 挂载组件
-    mountComponent(n2, container, parentComponent, anchor)
+    if (!n1) {
+      // 挂载组件
+      mountComponent(n2, container, parentComponent, anchor)
+    } else {
+      // 更新组件
+      updateComponent(n1, n2)
+    }
   }
+
+  function updateComponent(n1, n2) {
+    // 更新实际上只需要想办法 调用 render 函数 然后再 patch 去更新
+    // instance 从哪里来呢？ 在挂载阶段 我们会生成 instance 然后挂载到 虚拟dom 上
+    // n2 没有 所以要赋值
+    const instance = n2.component = n1.component
+
+    // 只有但子组件的 props 发生了改变才需要更新
+    if (shouldUpdateComponent(n1, n2)) {
+      // 然后再把 n2 设置为下次需要更新的 虚拟 dom
+      instance.next = n2
+      instance.update()
+    } else {
+      n2.el = n1.el
+      n2.vnode = n2
+    }
+  }
+
 
   function mountComponent(initialVNode, container, parentComponent, anchor) {
     // 创建组件实例
     // 这个实例上面有很多属性
-    const instance = createComponentInstance(initialVNode, parentComponent)
+    const instance = initialVNode.component = createComponentInstance(initialVNode, parentComponent)
 
     // 初始化
     setupComponent(instance)
@@ -382,7 +406,8 @@ export function createRenderer(options) {
   }
 
   function setupRenderEffect(instance, initialVNode, container, anchor) {
-    effect(() => {
+    // 将 effect 放在 instance 实例身上
+    instance.update = effect(() => {
       if (!instance.isMount) {
         console.log('init');
         const { proxy } = instance
@@ -398,6 +423,13 @@ export function createRenderer(options) {
         instance.isMount = true
       } else {
         console.log('update');
+        // next 是下一个 要更新的 vnode 是老的
+        const { next, vnode } = instance
+        if (next) {
+          next.el = vnode.el
+          updateComponentPreRender(instance, next);
+        }
+
         const { proxy } = instance
         // 当前的虚拟节点树
         const subTree = instance.render.call(proxy)
@@ -429,6 +461,16 @@ export function createRenderer(options) {
     createApp: createAppAPI(render)
   }
 }
+
+function updateComponentPreRender(instance, nextVNode) {
+  instance.vnode = nextVNode
+  instance.next = null
+
+  // 然后就是更新 props
+  // 这里只是简单的赋值
+  instance.props = nextVNode.props
+}
+
 
 function getSequence(arr) {
   const p = arr.slice();
