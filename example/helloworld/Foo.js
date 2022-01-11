@@ -1,4 +1,4 @@
-import { h } from '../../lib/my-miniVue.esm.js';
+import { h } from '../../lib/mini-vue3.esm.js';
 
 export const Foo = {
     setup(props) {

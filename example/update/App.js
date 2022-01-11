@@ -1,4 +1,4 @@
-import { h, ref } from '../../lib/my-miniVue.esm.js';
+import { h, ref } from '../../lib/mini-vue3.esm.js';
 
 export const App = {
     name: 'App',

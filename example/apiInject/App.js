@@ -1,5 +1,5 @@
 // 组件 provide 和 inject 功能
-import { h, provide, inject } from '../../lib/my-miniVue.esm.js';
+import { h, provide, inject } from '../../lib/mini-vue3.esm.js';
 
 const Provider = {
     name: 'Provider',

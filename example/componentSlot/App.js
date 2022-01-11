@@ -1,4 +1,4 @@
-import { h, renderSlots, createTextVNode } from '../../lib/my-miniVue.esm.js';
+import { h, renderSlots, createTextVNode } from '../../lib/mini-vue3.esm.js';
 import { Foo } from './Foo.js';
 
 export const App = {

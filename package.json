@@ -1,9 +1,9 @@
 {
-    "name": "my-miniVue",
+    "name": "mini-vue3",
     "version": "1.0.0",
-    "main": "lib/my-miniVue.cjs.js",
-    "module": "lib/my-miniVue.esm.js",
-    "repository": "git@github.com:Leiloloaa/my-miniVue.git",
+    "main": "lib/mini-vue3.cjs.js",
+    "module": "lib/mini-vue3.esm.js",
+    "repository": "git@github.com:Leiloloaa/mini-vue3.git",
     "author": "cl1997 <Leiloloaa@gmail.com>",
     "license": "MIT",
     "scripts": {

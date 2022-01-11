@@ -1,4 +1,4 @@
-import { h, renderSlots } from '../../lib/my-miniVue.esm.js';
+import { h, renderSlots } from '../../lib/mini-vue3.esm.js';
 
 export const Foo = {
     setup() {},
@@ -14,9 +14,13 @@ export const Foo = {
         // return h('div', {}, [renderSlots(this.$slots, 'header'), foo, renderSlots(this.$slots, 'footer')]);
         // 3、作用域插槽
         // 父组件能够使用子组件中的数据
-        const foo = h('div', {}, 'Foo')
-        const age = 18
-        return h('div', {}, [renderSlots(this.$slots, 'header', { age }), foo, renderSlots(this.$slots, 'footer')]);
+        const foo = h('div', {}, 'Foo');
+        const age = 18;
+        return h('div', {}, [
+            renderSlots(this.$slots, 'header', { age }),
+            foo,
+            renderSlots(this.$slots, 'footer')
+        ]);
         // h(标签名，属性，内容)
     }
 };

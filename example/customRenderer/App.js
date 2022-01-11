@@ -1,13 +1,13 @@
-import { h } from "../../lib/my-miniVue.esm.js";
+import { h } from '../../lib/mini-vue3.esm.js';
 
 export const App = {
     setup() {
         return {
             x: 100,
-            y: 100,
+            y: 100
         };
     },
     render() {
-        return h("rect", { x: this.x, y: this.y });
-    },
+        return h('rect', { x: this.x, y: this.y });
+    }
 };
