@@ -113,25 +113,25 @@ import { ref, h } from '../../lib/mini-vue3.esm.js';
 // a,b,(c,e,d),f,g
 // a,b,(e,c),f,g
 // 中间部分，老的比新的多， 那么多出来的直接就可以被干掉(优化删除逻辑)
-const prevChildren = [
-  h("p", { key: "A" }, "A"),
-  h("p", { key: "B" }, "B"),
-  h("p", { key: "C", id: "c-prev" }, "C"),
-  h("p", { key: "Y" }, "Y"),
-  h("p", { key: "E" }, "E"),
-  h("p", { key: "D" }, "D"),
-  h("p", { key: "F" }, "F"),
-  h("p", { key: "G" }, "G"),
-];
+// const prevChildren = [
+//   h("p", { key: "A" }, "A"),
+//   h("p", { key: "B" }, "B"),
+//   h("p", { key: "C", id: "c-prev" }, "C"),
+//   h("p", { key: "Y" }, "Y"),
+//   h("p", { key: "E" }, "E"),
+//   h("p", { key: "D" }, "D"),
+//   h("p", { key: "F" }, "F"),
+//   h("p", { key: "G" }, "G"),
+// ];
 
-const nextChildren = [
-  h("p", { key: "A" }, "A"),
-  h("p", { key: "B" }, "B"),
-  h("p", { key: "C", id:"c-next" }, "C"),
-  h("p", { key: "E" }, "E"),
-  h("p", { key: "F" }, "F"),
-  h("p", { key: "G" }, "G"),
-];
+// const nextChildren = [
+//   h("p", { key: "A" }, "A"),
+//   h("p", { key: "B" }, "B"),
+//   h("p", { key: "C", id:"c-next" }, "C"),
+//   h("p", { key: "E" }, "E"),
+//   h("p", { key: "F" }, "F"),
+//   h("p", { key: "G" }, "G"),
+// ];
 
 // 2 移动 (节点存在于新的和老的里面，但是位置变了)
 
@@ -187,41 +187,41 @@ const nextChildren = [
 // a,b,(c,d,e,z),f,g
 // a,b,(d,c,y,e),f,g
 
-// const prevChildren = [
-//     h('p', { key: 'A' }, 'A'),
-//     h('p', { key: 'B' }, 'B'),
-//     h('p', { key: 'C' }, 'C'),
-//     h('p', { key: 'D' }, 'D'),
-//     h('p', { key: 'E' }, 'E'),
-//     h('p', { key: 'F' }, 'F'),
-//     h('p', { key: 'G' }, 'G')
-// ];
+const prevChildren = [
+  h('p', { key: 'A' }, 'A'),
+  h('p', { key: 'B' }, 'B'),
+  h('p', { key: 'C' }, 'C'),
+  h('p', { key: 'D' }, 'D'),
+  h('p', { key: 'E' }, 'E'),
+  h('p', { key: 'F' }, 'F'),
+  h('p', { key: 'G' }, 'G')
+];
 
-// const nextChildren = [
-//     h('p', { key: 'A' }, 'A'),
-//     h('p', { key: 'B' }, 'B'),
-//     h('p', { key: 'E' }, 'E'),
-//     h('p', { key: 'C' }, 'C'),
-//     h('p', { key: 'D' }, 'D'),
-//     h('p', { key: 'F' }, 'F'),
-//     h('p', { key: 'G' }, 'G')
-// ];
+const nextChildren = [
+  h('p', { key: 'A' }, 'A'),
+  h('p', { key: 'B' }, 'B'),
+  h('p', { key: 'E' }, 'E'),
+  h('p', { key: 'C' }, 'C'),
+  h('p', { key: 'D' }, 'D'),
+  h('p', { key: 'F' }, 'F'),
+  h('p', { key: 'G' }, 'G')
+];
 
 export default {
-    name: 'ArrayToArray',
-    setup() {
-        const isChange = ref(false);
-        window.isChange = isChange;
+  name: 'ArrayToArray',
+  setup() {
+    const isChange = ref(false);
+    window.isChange = isChange;
 
-        return {
-            isChange
-        };
-    },
-    render() {
-        const self = this;
+    return {
+      isChange
+    };
+  },
+  render() {
+    const self = this;
 
-        return self.isChange === true ?
-            h('div', {}, nextChildren) :
-            h('div', {}, prevChildren);
-    }
+    return self.isChange === true
+      ? h('div', {}, nextChildren)
+      : h('div', {}, prevChildren);
+  }
 };

@@ -1711,6 +1711,10 @@ function patchKeyedChildren(c1, c2){
 
 ## diff 处理中间乱序
 
+如图，你通过`双端对比`（三个指针，通过左序遍历和右序遍历确定变动的位置）已经找到了乱序的部分
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/de97c29726fb4b3aa651b2b140d8db59~tplv-k3u1fbpfcp-watermark.image?)
+
 思考一下，新老节点对比无非是以下三种情况：
 
 - 1、新的比老的长 => 增加
@@ -1740,6 +1744,7 @@ if(i>e1){
 ```
 
 ### 新的虚拟节点比老的虚拟节点长
+
 新的节点更长，需要增加节点，所以循环的条件就是 i > e1 并且 i 是小于或等于 e2。
 
 增加有两种情况，如图所示：
@@ -1800,7 +1805,7 @@ if (i > e2) {
 
 既然两个节点树长度是一样的，我们可以通过遍历老节点，然后同时遍历新节点，检查是否在新的里面存在，此时时间复杂度为 O(n*n)；显然不是最优，为了优化性能，我们可以为新的节点建立一个映射表，只要根据 key 去查是否存在；
 
-如下图，我们得知变动元素在老节点中的索引分别是 c:2 d:3 e:4
+如下图，我们得知变动元素在老节点中的索引分别是 c:2 d:3 e:4。
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d6abdd7677c94492af02dee456d29994~tplv-k3u1fbpfcp-watermark.image?)
 
@@ -1809,7 +1814,11 @@ let s1 = i // i 是停止的位置 差异开始的地方
 let s2 = i
 // 建立新节点的映射表
 const keyToNewIndexMap = new Map()
-
+// 思考：为什么要建立映射表
+// diff 的意义在与 减少 dom 操作
+// 老的节点是 dom 元素 而新的节点是个对象
+// 实际上我们还是操作老的 dom
+// 映射表的意义在于我们可以快速的根据老节点的 key 来快速查到它在新的节点里面是哪个位置，然后对比位置关系再操作
 // 循环 e2
 for (let i = s2; i <= e2; i++) {
   const nextChild = c2[i]; // c2 是新节点
@@ -1817,7 +1826,7 @@ for (let i = s2; i <= e2; i++) {
 }
 ```
 
-映射表如下
+映射表如下：
 
 ```js
 {
@@ -1827,20 +1836,22 @@ for (let i = s2; i <= e2; i++) {
 }
 ```
 
-建立完映射表之后，我们在循环 e1（因为 e1 是老节点，我们所有的步骤都是为了减少 dom 的操作，所以我们要对比新老节点，改动其实是在 e1，对照 e2 改 e1），
+建立完映射表之后，我们在循环 e1（因为 e1 是老节点，我们所有的步骤都是为了减少 dom 的操作，所以我们要对比新老节点，改动其实是在 e1，对照 e2 改 e1）。
 
 ```js
 // 循环 e1
 for (let i = s1; i <= e1; i++) {
   const prevChild = c1[i]; // c1 是老节点
-
+  
+  // 它的作用是告诉我们老节点的元素是否在新的里面
   let newIndex // 临时变量索引
   // 这里先只做简单的 key 值判断是否为同一个
   if (prevChild.key !== null) {
     // 用户输入了 key 那么 newIndex 就等于 映射表中 对应的索引值
     newIndex = keyToNewIndexMap.get(prevChild.key)
   } else {
-    // 用户没有输入 key
+    // 没有输入 key
+    // 只有通过遍历的方式 去对比 两个节点是否相同
     for (let j = s2; j < e2; j++) {
       if (isSomeVNodeType(prevChild, c2[j])) {
         // 如果相同的话 newIndex 就等于 老节点中的索引值 也就是 此时的 j
@@ -1849,72 +1860,65 @@ for (let i = s1; i <= e1; i++) {
       }
     }
   }
-  
   // 上面几行代码所做的事情就是 拿到 新节点 在 老节点 对应的 索引值
   // 有两种情况 undefined 或 有值
   if (newIndex === undefined) {
     // 新节点中不存在老节点的话 就可以直接删除此元素了 
     hostRemove(prevChild.el)
   } else {
-      // 存在就在次深层次的比较
+      // 节点存在 不代表它的 props 或者它的子节点 是一样的
       // patch  => prevChild 和 c2[newIndex]
+      patch(prevChild, c2[newIndex], container, parentComponent, null)
   }
 }
 ```
 
-上方的代码，咱们可以优化一下
+通过上方的代码，我们可以实现以下实例，删除 Y\D。
 
 ```js
-// 如果新的节点少于老的节点，当遍历完新的之后，就不需要再遍历了
+const prevChildren = [
+  h("p", { key: "A" }, "A"),
+  h("p", { key: "B" }, "B"),
+  h("p", { key: "C", id: "c-prev" }, "C"),
+  h("p", { key: "Y" }, "Y"),
+  h("p", { key: "E" }, "E"),
+  h("p", { key: "D" }, "D"),
+  h("p", { key: "F" }, "F"),
+  h("p", { key: "G" }, "G"),
+];
+
+const nextChildren = [
+  h("p", { key: "A" }, "A"),
+  h("p", { key: "B" }, "B"),
+  h("p", { key: "C", id:"c-next" }, "C"),
+  h("p", { key: "E" }, "E"),
+  h("p", { key: "F" }, "F"),
+  h("p", { key: "G" }, "G"),
+];
+```
+
+上方的代码，咱们可以优化一下，如果新的节点少于老的节点，当遍历完新的之后，就不需要再遍历了！
+
+```js
 // 通过一个总数和一个遍历次数 来优化
 // 要遍历的数量
 const toBePatched = e2 - s2 + 1
 // 已经遍历的数量
 let patched = 0
-// 建立新节点的映射表
-const keyToNewIndexMap = new Map()
-// 新建一个定长数组(需要变动的长度) 性能是最好的 来确定新老之间索引关系 我们要查到最长递增的子序列 也就是索引值
-const newIndexToOldIndexMap = new Array(toBePatched)
-// 确定是否需要移动 只要后一个索引值小于前一个 就需要移动
-let moved = false
-let maxNewIndexSoFar = 0
-
+...
 // 循环 e1
 for (let i = s1; i <= e1; i++) {
   const prevChild = c1[i];
-
+  // === 改动 ===
   if (patched >= toBePatched) {
-    hostRemove(prevChild.el)
-    continue
-  }
-
-  let newIndex
-  if (prevChild.key !== null) {
-    // 用户输入 key
-    newIndex = keyToNewIndexMap.get(prevChild.key)
-  } else {
-    // 用户没有输入 key
-    for (let j = s2; j < e2; j++) {
-      if (isSomeVNodeType(prevChild, c2[j])) {
-        newIndex = j;
-        break;
-      }
-    }
-  }
-
+     // 说明已经遍历完了 在挨个删除
+     hostRemove(prevChild.el)
+     continue // 后面的就不会执行了
+   }
+  ...
   if (newIndex === undefined) {
     hostRemove(prevChild.el)
   } else {
-    if (newIndex >= maxNewIndexSoFar) {
-      maxNewIndexSoFar = newIndex
-    } else {
-      moved = true
-    }
-
-    // 实际上是等于 i 就可以 因为 0 表示不存在 所以 定义成 i + 1
-    newIndexToOldIndexMap[newIndex - s2] = i + 1
-
-    // 存在就再次深度对比
     patch(prevChild, c2[newIndex], container, parentComponent, null)
     // patch 完就证明已经遍历完一个新的节点
     patched++
@@ -1922,26 +1926,65 @@ for (let i = s1; i <= e1; i++) {
 }
 ```
 
-到这一步，咱们就只剩调用最长递增子序列，来使调整尽可能少。
+到这一步，咱们还没有实现移动，如开头所说，有时候某些元素的相对位置是没有改变的。所以我们可以利用最长递增子序列将改变变得更小！
+
+**拆分问题 => 获取最长递增子序列**
+
+- abcdefg -> 老
+- adecdfg -> 新
+
+- 1.确定新老节点之间的关系 新的元素在老的节点中的索引 e:4,c:2,d:3
+newIndexToOldIndexMap 的初始值是一个定值数组，初始项都是 0，newIndexToOldIndexMap = [0,0,0] => [5,3,4] 加了1 因为 0 是有意义的。
+递增的索引值就是 [1,2]
+- 2.最长的递增子序列 [1,2] 对比 ecd 这个变动的序列
+利用两个指针 i 和 j
+i 去遍历新的索引值 ecd [0,1,2] j 去遍历 [1,2]
+如果 i!=j 那么就是需要移动
+
+**第一步**
 
 ```js
-// 获取最长递增子序列 getSequence
-const increasingNewIndexSequence = moved ? getSequence(newIndexToOldIndexMap) : []
+// 新建一个定长数组(需要变动的长度) 性能是最好的 来确定新老之间索引关系 我们要查到最长递增的子序列 也就是索引值
+const newIndexToOldIndexMap = new Array(toBePatched)
+for (let i = 0; i < toBePatched; i++) {
+  newIndexToOldIndexMap[i] = 0
+}
+...
+// 在获取到 newIndex 的时候赋值
+if (newIndex === undefined) {
+  // 新节点不存在老节点的话 删除
+  hostRemove(prevChild.el)
+} else {
+  // 实际上是等于 i 就可以 因为 0 表示不存在 所以 定义成 i + 1
+  newIndexToOldIndexMap[newIndex - s2] = i + 1
+  // 节点存在 不代表它的 props 或者它的子节点 是一样的
+  patch(prevChild, c2[newIndex], container, parentComponent, null)
+  // patch 完就证明已经遍历完一个新的节点
+  patched++
+}
+...
+```
 
+**第二步**
+
+```js
+// 获取最长递增子序列 newIndexToOldIndexMap 再上一步已经赋好了值
+const increasingNewIndexSequence = getSequence(newIndexToOldIndexMap)
 let j = increasingNewIndexSequence.length - 1
 // 倒序的好处就是 能够确定稳定的位置
 // ecdf
 // cdef
-// 如果是 从 f 开始就能确定 e 的位置
+// 如果是从 f 开始就能确定 e 的位置
 // 从最后开始就能依次确定位置
 for (let i = toBePatched; i >= 0; i--) {
-  const nextIndex = i + s2
+  const nextIndex = i + s2 // i 初始值是要遍历的长度 s2 是一开始变动的位置 加起来就是索引值
   const nextChild = c2[nextIndex]
+  // 锚点 => 位置
   const anchor = nextIndex + 1 < len2 ? c2[nextIndex + 1].el : null
   if (newIndexToOldIndexMap[i] === 0) {
     patch(null, nextChild, container, parentComponent, anchor)
-  } else if (moved) {
-    if (j < 0 || i !== increasingNewIndexSequence[j]) {
+  } else {
+    if (i !== increasingNewIndexSequence[j]) {
       // 移动位置 调用 insert
       hostInsert(nextChild.el, container, anchor)
     } else {
@@ -1949,6 +1992,45 @@ for (let i = toBePatched; i >= 0; i--) {
     }
   }
 }
+```
+
+我们还可以优化这一步的代码，确定是否需要移动，只要后一个索引值小于前一个，就需要移动。
+
+```js
+let moved = false
+let maxNewIndexSoFar = 0
+...
+if (newIndex === undefined) {
+  hostRemove(prevChild.el)
+} else {
+  // === 改动 ===
+  if (newIndex >= maxNewIndexSoFar) {
+    maxNewIndexSoFar = newIndex
+  } else {
+    moved = true
+  }
+  // 实际上是等于 i 就可以 因为 0 表示不存在 所以 定义成 i + 1
+  newIndexToOldIndexMap[newIndex - s2] = i + 1
+  // 存在就再次深度对比
+  patch(prevChild, c2[newIndex], container, parentComponent, null)
+  // patch 完就证明已经遍历完一个新的节点
+  patched++
+}
+...
+// 获取最长递增子序列
+const increasingNewIndexSequence = moved ? getSequence(newIndexToOldIndexMap) : []
+...
+if (newIndexToOldIndexMap[i] === 0) {
+  patch(null, nextChild, container, parentComponent, anchor)
+} else if (moved) {
+  if (j < 0 || i !== increasingNewIndexSequence[j]) {
+    // 移动位置 调用 insert
+    hostInsert(nextChild.el, container, anchor)
+  } else {
+    j++
+  }
+}
+...
 ```
 
 ## 更新组件

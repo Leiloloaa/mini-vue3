@@ -222,6 +222,25 @@ export function createRenderer(options) {
       const toBePatched = e2 - s2 + 1 // 索引值 所以需要+1
       // 已经遍历的数量
       let patched = 0
+
+      // 拆分问题 => 获取最长递增子序列
+      // abcdefg -> 老
+      // adecdfg -> 新
+      // 1.确定新老节点之间的关系 新的元素在老的节点中的索引 e:4,c:2,d:3
+      // newIndexToOldIndexMap 的初始值是一个定值数组，初始项都是 0，newIndexToOldIndexMap = [0,0,0] => [5,3,4] 加了1 因为 0 是有意义的。
+      // 递增的索引值就是 [1,2]
+      // 2.最长的递增子序列 [1,2] 对比 ecd 这个变动的序列
+      // 利用两个指针 i 和 j
+      // i 去遍历新的索引值 ecd [0,1,2] j 去遍历 [1,2]
+      // 如果 i!=j 那么就是需要移动 
+
+      // 新建一个定长数组(需要变动的长度) 性能是最好的 来确定新老之间索引关系 我们要查到最长递增的子序列 也就是索引值
+      const newIndexToOldIndexMap = new Array(toBePatched)
+      // 赋值
+      for (let i = 0; i < toBePatched; i++) {
+        newIndexToOldIndexMap[i] = 0
+      }
+
       for (let i = s1; i <= e1; i++) {
         const prevChild = c1[i]
 
@@ -257,11 +276,39 @@ export function createRenderer(options) {
           // 新节点不存在老节点的话 删除
           hostRemove(prevChild.el)
         } else {
+          // 实际上是等于 i 就可以 因为 0 表示不存在 所以 定义成 i + 1
+          newIndexToOldIndexMap[newIndex - s2] = i + 1
+
           // 节点存在 不代表它的 props 或者它的子节点 是一样的
           patch(prevChild, c2[newIndex], container, parentComponent, null)
 
           // patch 完就证明已经遍历完一个新的节点
           patched++
+        }
+      }
+
+      // 获取最长递增子序列
+      const increasingNewIndexSequence = getSequence(newIndexToOldIndexMap)
+      let j = increasingNewIndexSequence.length - 1
+      // 倒序的好处就是 能够确定稳定的位置
+      // ecdf
+      // cdef
+      // 如果是从 f 开始就能确定 e 的位置
+      // 从最后开始就能依次确定位置
+      for (let i = toBePatched; i >= 0; i--) {
+        const nextIndex = i + s2 // i 初始值是要遍历的长度 s2 是一开始变动的位置 加起来就是索引值
+        const nextChild = c2[nextIndex]
+        // 锚点 => 位置
+        const anchor = nextIndex + 1 < len2 ? c2[nextIndex + 1].el : null
+        if (newIndexToOldIndexMap[i] === 0) {
+          patch(null, nextChild, container, parentComponent, anchor)
+        } else {
+          if (i !== increasingNewIndexSequence[j]) {
+            // 移动位置 调用 insert
+            hostInsert(nextChild.el, container, anchor)
+          } else {
+            j++
+          }
         }
       }
     }
@@ -360,4 +407,45 @@ export function createRenderer(options) {
   return {
     createApp: createAppAPI(render)
   }
+}
+
+function getSequence(arr) {
+  const p = arr.slice();
+  const result = [0];
+  let i, j, u, v, c;
+  const len = arr.length;
+  for (i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      j = result[result.length - 1];
+      if (arr[j] < arrI) {
+        p[i] = j;
+        result.push(i);
+        continue;
+      }
+      u = 0;
+      v = result.length - 1;
+      while (u < v) {
+        c = (u + v) >> 1;
+        if (arr[result[c]] < arrI) {
+          u = c + 1;
+        } else {
+          v = c;
+        }
+      }
+      if (arrI < arr[result[u]]) {
+        if (u > 0) {
+          p[i] = result[u - 1];
+        }
+        result[u] = i;
+      }
+    }
+  }
+  u = result.length;
+  v = result[u - 1];
+  while (u-- > 0) {
+    result[u] = v;
+    v = p[v];
+  }
+  return result;
 }
