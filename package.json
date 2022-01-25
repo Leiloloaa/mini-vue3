@@ -1,27 +1,27 @@
 {
-    "name": "my-miniVue",
-    "version": "1.0.0",
-    "main": "./lib/my-miniVue.cjs.js",
-    "module": "./lib/my-miniVue.esm.js",
-    "repository": "git@github.com:Leiloloaa/my-miniVue.git",
-    "author": "cl1997 <Leiloloaa@gmail.com>",
-    "license": "MIT",
-    "scripts": {
-        "test": "jest",
-        "build": "rollup -c rollup.config.js"
-    },
-    "devDependencies": {
-        "@babel/core": "^7.15.8",
-        "@babel/preset-env": "^7.15.8",
-        "@babel/preset-typescript": "^7.15.0",
-        "@types/jest": "^27.0.2",
-        "babel-jest": "^27.2.5",
-        "jest": "^27.2.5",
-        "rollup": "^2.58.0",
-        "tslib": "^2.3.1",
-        "typescript": "^4.4.4"
-    },
-    "dependencies": {
-        "@rollup/plugin-typescript": "^8.3.0"
-    }
+  "name": "mini-vue3",
+  "version": "1.0.0",
+  "main": "./lib/mini-vue3.cjs.js",
+  "module": "./lib/mini-vue3.esm.js",
+  "repository": "git@github.com:Leiloloaa/mini-vue3.git",
+  "author": "cl1997 <Leiloloaa@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "test": "jest",
+    "build": "rollup -c rollup.config.js"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.15.8",
+    "@babel/preset-env": "^7.15.8",
+    "@babel/preset-typescript": "^7.15.0",
+    "@types/jest": "^27.0.2",
+    "babel-jest": "^27.2.5",
+    "jest": "^27.2.5",
+    "rollup": "^2.58.0",
+    "tslib": "^2.3.1",
+    "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "@rollup/plugin-typescript": "^8.3.0"
+  }
 }

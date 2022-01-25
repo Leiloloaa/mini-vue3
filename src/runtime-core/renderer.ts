@@ -150,7 +150,7 @@ export function createRenderer(options) {
     function isSomeVnodeType(n1, n2) {
       return n1.type === n2.type && n1.key === n2.key
     }
-    debugger;
+    // debugger;
     // 左侧对比
     while (i <= e1 && i <= e2) {
       const n1 = c1[i]
@@ -193,6 +193,76 @@ export function createRenderer(options) {
       while (i <= e1) {
         hostRemove(c1[i].el)
         i++
+      }
+    } else {
+      // 中间乱序部分
+      // 遍历老节点 然后检查在新的里面是否存在
+      // 方案一 同时遍历新的 时间复杂度 o(n*n)
+      // 方案二 新的节点建立一个映射表 时间复杂度 o(1) 只需要根据 key 去查是否存在
+      // 记录差异开始的位置 i 是索引
+      let s1 = i
+      let s2 = i
+
+      // 思考：为什么要建立映射表
+      // diff 的意义在与 减少 dom 操作
+      // 老的节点是 dom 元素 而新的节点是个对象
+      // 实际上我们还是操作老的 dom
+      // 映射表的意义在于我们可以快速的根据老节点的 key 来快速查到它在新的节点里面是哪个位置，然后对比位置关系再操作
+
+      // 建立映射表
+      const keyToNewIndexMap = new Map()
+      for (let i = s2; i <= e2; i++) {
+        const nextChild = c2[i]
+        keyToNewIndexMap.set(nextChild.key, i)
+      }
+
+      // 优化遍历
+      // 循环 e1 老节点
+      // 如果新的节点少于老的节点 那么遍历完新的节点后 就不需要再遍历了
+      const toBePatched = e2 - s2 + 1 // 索引值 所以需要+1
+      // 已经遍历的数量
+      let patched = 0
+      for (let i = s1; i <= e1; i++) {
+        const prevChild = c1[i]
+
+        if (patched >= toBePatched) {
+          // 说明已经遍历完了 在挨个删除
+          hostRemove(prevChild.el)
+          continue // 后面的就不会执行了
+        }
+
+        // 需要一个临时变量
+        // 它的作用是告诉我们老节点的元素是否在新的里面
+        let newIndex
+
+        // 有两种情况
+        if (prevChild.key !== null) {
+          // 用户输入了 key
+          newIndex = keyToNewIndexMap.get(prevChild.key)
+        } else {
+          // 没有输入 key
+          // 只有通过遍历的方式 去对比 两个节点是否相同
+          for (let j = s2; j <= e2; j++) {
+            if (isSomeVnodeType(prevChild, c2[j])) {
+              // 如果相同的话 说明找到了
+              newIndex = j
+              break
+            }
+          }
+        }
+
+        // 上面几行代码所做的事情就是 拿到 新节点 在 老节点 对应的 索引值
+        // 有两种情况 undefined 或 有值
+        if (newIndex === undefined) {
+          // 新节点不存在老节点的话 删除
+          hostRemove(prevChild.el)
+        } else {
+          // 节点存在 不代表它的 props 或者它的子节点 是一样的
+          patch(prevChild, c2[newIndex], container, parentComponent, null)
+
+          // patch 完就证明已经遍历完一个新的节点
+          patched++
+        }
       }
     }
   }
