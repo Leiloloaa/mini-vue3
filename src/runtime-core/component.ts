@@ -15,6 +15,7 @@ export function createComponentInstance(vnode, parent) {
     slots: {},
     provides: parent ? parent.provides : {}, // 一开始是初始化，然后父级存在，就是取父级的
     parent, // 存储父级component
+    next: null,
     subTree: {},
     isMounted: false,
     emit: () => { }

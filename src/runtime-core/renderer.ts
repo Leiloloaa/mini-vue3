@@ -4,6 +4,7 @@ import { ShapeFlags } from "../shared/shapeFlag";
 import { createComponentInstance, setupComponent } from "./component"
 import { createAppAPI } from './createApp';
 import { effect } from '../reactivity/effect';
+import { shouldUpdateComponent } from './componentUpdateUtils';
 
 export function createRenderer(options) {
   const {
@@ -45,11 +46,34 @@ export function createRenderer(options) {
 
   // 处理 新建 或者 更新
   function processComponent(n1, n2: any, container: any, parentComponent, anchor) {
-    mountComponent(n2, container, parentComponent, anchor)
+    if (!n1) {
+      mountComponent(n2, container, parentComponent, anchor)
+    } else {
+      // 更新组件
+      updateComponent(n1, n2);
+    }
+  }
+
+  function updateComponent(n1, n2) {
+    // 更新实际上只需要想办法 调用 render 函数 然后再 patch 去更新
+    // instance 从哪里来呢？ 在挂载阶段 我们会生成 instance 然后挂载到 虚拟dom 上
+    // n2 没有 所以要赋值
+    const instance = n2.component = n1.component;
+
+    // 不是每次都需要更新 只有 props 变了才更新
+    if (shouldUpdateComponent(n1, n2)) {
+      // 然后再把 n2 设置为下次需要更新的 虚拟 dom
+      instance.next = n2
+      instance.update()
+    } else {
+      n2.el = n1.el
+      n2.vnode = n2
+    }
   }
 
   function mountComponent(initialVNode: any, container: any, parentComponent, anchor) {
-    const instance = createComponentInstance(initialVNode, parentComponent)
+    // 为了更新 所以 加上了 component 属性
+    const instance = initialVNode.component = createComponentInstance(initialVNode, parentComponent)
 
     // 初始化组件
     setupComponent(instance)
@@ -57,27 +81,37 @@ export function createRenderer(options) {
   }
 
   function setupRenderEffect(instance: any, initialVNode, container: any, anchor) {
-    effect(() => {
+    // 将 effect 放在 instance 实例身上
+    instance.update = effect(() => {
       if (!instance.isMounted) {
         console.log("init");
         const { proxy } = instance;
         const subTree = (instance.subTree = instance.render.call(proxy));
-
         patch(null, subTree, container, instance, null);
-
         initialVNode.el = subTree.el;
-
         instance.isMounted = true;
       } else {
         console.log("update");
-        const { proxy } = instance;
+        const { next, vnode, proxy } = instance;
+        // 存在就要 更新
+        if (next) {
+          next.el = vnode.el;
+          updateComponentPreRender(instance, next);
+        }
         const subTree = instance.render.call(proxy);
         const prevSubTree = instance.subTree;
         instance.subTree = subTree;
-
         patch(prevSubTree, subTree, container, instance, anchor);
       }
     });
+  }
+
+  function updateComponentPreRender(instance, nextVNode) {
+    instance.vnode = nextVNode;
+    instance.next = null;
+    // 然后就是更新 props
+    // 这里只是简单的赋值
+    instance.props = nextVNode.props;
   }
 
   // 处理 Element

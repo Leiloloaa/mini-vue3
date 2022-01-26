@@ -1,14 +1,40 @@
 # mini-vue3
 
+## Vue3
+
+Vue3 使用`monorepo`来管理项目代码，这样做的目的是提升自身代码可维护性；并且抛弃了 `Flow` 来使用 `TypeScript` 来重写了 `Vue` 源码。
+
+主要结构如下：
+
+![](http://66.152.176.25:8000/home/images/miniVue/Vue3.png)
+
 ##  单元测试方法
 
-TDD 测试驱动开发
+**TDD 测试驱动开发**
 
 TDD(Test-Driven Development)TDD是一个开发测试代码和业务代码的工作流程，基于这个流程你可以写出具有极高测试覆盖率（通常接近90%）的代码。TDD还可以减少测试中发现比较难以定位的BUG的可能性。TDD的一般过程是：写一个测试运行这个测试，看到预期的失败编写尽可能少的业务代码，让测试通过重构代码不断重复以上过程
 
-BDD 行为驱动开发
-BDD(Behavior-Driven Development)
-BDD解决的一个关键问题就是如何定义TDD或单元测试过程中的细节。一些不良的单元测试的一个常见问题是过于依赖被测试功能的实现逻辑。这通常意味着如果你要修改实现逻辑，即使输入输出没有变，通常也需要去更新测试代码。这就造成了一个问题，让开发人员对测试代码的维护感觉乏味和厌烦。BDD则通过向你展示如何测试来解决这个问题，你不需要再面向实现细节设计测试，取而代之的是面向行为来测试。
+**BDD 行为驱动开发**
+
+BDD(Behavior-Driven Development)解决的一个关键问题就是如何定义TDD或单元测试过程中的细节。一些不良的单元测试的一个常见问题是过于依赖被测试功能的实现逻辑。这通常意味着如果你要修改实现逻辑，即使输入输出没有变，通常也需要去更新测试代码。这就造成了一个问题，让开发人员对测试代码的维护感觉乏味和厌烦。BDD则通过向你展示如何测试来解决这个问题，你不需要再面向实现细节设计测试，取而代之的是面向行为来测试。
+
+## 响应式系统原理图
+
+![](http://66.152.176.25:8000/home/images/miniVue/响应式原理图.png)
+
+```js
+targetMap = {
+ target: {
+   key1: [回调函数1，回调函数2],
+   key2: [回调函数3，回调函数4],
+ },
+ target1:{
+   key3: [回调函数5]
+ }  
+}
+```
+
+targetMap 是一个全局的 WeakMap，target 是一个 Map，key 是一个 Set；接下来就看看 收集依赖和触发依赖 是如何实现的？
 
 ## 实现 effect 中的 track 和 trigger
 
@@ -1205,6 +1231,11 @@ export function inject(key, defaultValue: any) {
 }
 ```
 
+## Vue3 渲染流程图
+
+![](http://66.152.176.25:8000/home/images/miniVue/render渲染图.png)
+![](http://66.152.176.25:8000/home/images/miniVue/patch.png)
+
 ## 实现自定义渲染器 customRenderer
 
 **如果一个框架想要实现实现跨端的功能，那么渲染器本身不能依赖任何平台下特有的接口**
@@ -2033,7 +2064,7 @@ if (newIndexToOldIndexMap[i] === 0) {
 ...
 ```
 
-## 更新组件
+## 实现组件更新功能
 
 组件和 element 都是有相应的 patch，所以在 processComponent 我们要区分 init 和 update，新增 updateComponent。如何更新？
 无非是调用 render 然后在 patch 再去更新组件中的值；
@@ -2041,6 +2072,62 @@ if (newIndexToOldIndexMap[i] === 0) {
 我们将 effect 挂载到 instance 上，然后 process 处理更新的时候使用 instance.update 函数就可以；再将 instance 加到 虚拟节点 的上
 
 更新的时候我们还需要更新 props， next 表示下次要更新的节点
+
+代码实现
+
+```ts
+function processComponent(n1, n2: any, container: any, parentComponent, anchor) {
+  if (!n1) {
+    mountComponent(n2, container, parentComponent, anchor)
+  } else {
+    // 更新组件
+    updateComponent(n1, n2);
+  }
+}
+
+function updateComponent(n1, n2) {
+  // 更新实际上只需要想办法 调用 render 函数 然后再 patch 去更新
+  // instance 从哪里来呢？ 在挂载阶段 我们会生成 instance 然后挂载到 虚拟dom 上
+  // n2 没有 所以要赋值
+  const instance = n2.component = n1.component;
+
+  // 不是每次都需要更新 只有 props 变了才更新
+  if (shouldUpdateComponent(n1, n2)) {
+    // 然后再把 n2 设置为下次需要更新的 虚拟 dom
+    instance.next = n2
+    instance.update()
+  } else {
+    n2.el = n1.el
+    n2.vnode = n2
+  }
+}
+
+function setupRenderEffect(instance: any, initialVNode, container: any, anchor) {
+  // 将 effect 放在 instance 实例身上
+  instance.update = effect(() => {
+    if (!instance.isMounted) {
+      console.log("init");
+      const { proxy } = instance;
+      const subTree = (instance.subTree = instance.render.call(proxy));
+      patch(null, subTree, container, instance, null);
+      initialVNode.el = subTree.el;
+      instance.isMounted = true;
+    } else {
+      console.log("update");
+      const { next, vnode, proxy } = instance;
+      // 存在就要 更新
+      if (next) {
+        next.el = vnode.el;
+        updateComponentPreRender(instance, next);
+      }
+      const subTree = instance.render.call(proxy);
+      const prevSubTree = instance.subTree;
+      instance.subTree = subTree;
+      patch(prevSubTree, subTree, container, instance, anchor);
+    }
+  });
+}
+```
 
 ## nextTick 函数
 
