@@ -2129,7 +2129,11 @@ function setupRenderEffect(instance: any, initialVNode, container: any, anchor) 
 }
 ```
 
-## nextTick 函数
+## 实现 nextTick 函数
+
+**nextTick 解决了什么问题**
+
+比如 有一个 for 循环 咱们只需要更新最后一次
 
 ```js
 // 做视图更新的时候 只需要渲染一次 就能达到这个效果
@@ -2140,4 +2144,54 @@ for (let i = 0; i < 100; i++) {
 }
 ```
 
+**如何实现？**
+
+将更新函数变成 微任务 就可以等待同步任务完成后 再执行，而 nextTick 的作用把这个回调函数推入 微任务调用栈。往前想一下 effect 中 有一个 scheduler 函数。我们可以使用 scheduler 函数实现。
+
+```ts
+  function setupRenderEffect(instance: any, initialVNode, container: any, anchor) {
+    // 将 effect 放在 instance 实例身上
+    instance.update = effect(() => {
+      if (!instance.isMounted) {
+        ...
+      } else {
+        ...
+      }
+    }, {
+      queueJobs(instance.update)
+  });
+}
+```
+
+![](http://66.152.176.25:8000/home/images/miniVue/nextTick.png)
+
 将更新 从同步改成了异步，所以 effect 包裹的 render 函数 不能立即执行，可以通过 scheduler 去控制
+
+```ts
+const queue: any[] = []
+// 通过一个策略 只生成一个 promise
+let isFlushPending = false
+const p = Promise.resolve()
+export function nextTick(fn) {
+  return fn ? p.then(fn) : p
+}
+export function queueJobs(job) {
+  if (!queue.includes(job)) {
+    queue.push(job)
+  }
+  queueFlush()
+}
+function queueFlush() {
+  if (isFlushPending) return
+  isFlushPending = true
+  nextTick(flushJob)
+}
+function flushJob() {
+  isFlushPending = false
+  let job
+  while (job = queue.shift()) {
+    job & job()
+  }
+}
+```
+
