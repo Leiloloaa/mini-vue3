@@ -2195,3 +2195,121 @@ function flushJob() {
 }
 ```
 
+## 实现解析插值表达式
+
+> 插值表达式 {{ message }}
+
+**插分任务**
+
+- 明确模板解析成字符串，根据字符串生成 AST 抽象语法树
+- 遍历模板字符串的过程中发现 {{ }} 符号，中间的就是 content
+- 除去 {{ }} 返回一定格式的数据，同时处理空格的情况
+
+新建`parse.spec.ts`单元测试，写代码的时候，先把单测需要的东西固定实现，然后再动态的实现！
+
+```js
+describe('Parse', () => {
+  // interpolation 插值表达式
+  describe('interpolation', () => {
+    test('simple interpolation', () => {
+      // baseParse 就是解析插值
+      const ast = baseParse("{{message}}")
+      // type 和 content 是抽象语法树特定的格式
+      expect(ast.children[0]).toStrictEqual({
+        type: NodeTypes.INTERPOLATION,
+        content: {
+          type: NodeTypes.SIMPLE_EXPRESSION,
+          content: "message"
+        }
+      })
+    });
+  })
+})
+```
+
+baseParse 函数要做的事情就是返回抽象语法树。
+
+```ts
+import { NodeTypes } from "./ast"; // 类型枚举
+
+export function baseParse(content) {
+  return {
+    children: [{
+      type: NodeTypes.INTERPOLATION,
+      content: {
+        type: NodeTypes.SIMPLE_EXPRESSION,
+        content: "message"
+      }
+    }]
+  }
+}
+```
+
+这样单测就能运行通过了，接下来根据任务拆分的思想，我们要先解析传入的 content。
+
+```js
+export function baseParse(content) {
+  const context = createParserContent(content)
+  ...
+}
+
+function createParserContent(content) {
+  return {
+    source: content
+  }
+}
+```
+
+因为没做模板解析的步奏，直接传入的插值，所以直接按照 AST 的格式，返回一个 source。
+
+然后就是解析内容，实现 parseChildren 函数。
+
+```ts
+function parseChildren(context) {
+  const nodes: any = []
+  let node
+  // 如果是以 {{ 开头，就解析插值
+  // 这里还有别的判断
+  if (context.source.startsWith('{{')) {
+    node = parseInterpolation(context)
+  }
+
+  nodes.push(node)
+
+  return nodes
+}
+
+function parseInterpolation(context) {
+  // {{message}}
+  // 拿出来定义的好处就是 如果需要更改 改动会很小
+  const openDelimiter = '{{'
+  const closeDelimiter = '}}'
+
+  // 我们要知道关闭的位置
+  // indexOf 表示 检索 }} 从 2 开始
+  const closeIndex = context.source.indexOf(
+    closeDelimiter,
+    openDelimiter.length
+  )
+
+  // 删除 前两个字符串
+  context.source = context.source.slice(openDelimiter.length)
+
+  // 内容的长度就等于 closeIndex - openDelimiter 的长度
+  const rawContentLength = closeIndex - openDelimiter.length
+  const rawContent = context.source.slice(0, rawContentLength)
+  const content = rawContent.trim()
+
+  // 然后还需要把这个字符串给删了 模板是一个字符串 要接着遍历后面的内容
+  context.source = context.source.slice(rawContentLength + closeDelimiter.length);
+
+  return {
+    type: NodeTypes.INTERPOLATION,
+    content: {
+      type: NodeTypes.SIMPLE_EXPRESSION,
+      content: content
+    }
+  }
+}
+```
+
