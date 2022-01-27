@@ -196,8 +196,18 @@ export function createRenderer(options) {
       const toBePatched = e2 - s2 + 1
       // 已经遍历的数量
       let patched = 0
-      // 建立新节点的映射表
-      const keyToNewIndexMap = new Map()
+
+      // 拆分问题 => 获取最长递增子序列
+      // abcdefg -> 老
+      // adecdfg -> 新
+      // 1.确定新老节点之间的关系 新的元素在老的节点中的索引 e:4,c:2,d:3
+      // newIndexToOldIndexMap 的初始值是一个定值数组，初始项都是 0，newIndexToOldIndexMap = [0,0,0] => [5,3,4] 加了1 因为 0 是有意义的。
+      // 递增的索引值就是 [1,2]
+      // 2.最长的递增子序列 [1,2] 对比 ecd 这个变动的序列
+      // 利用两个指针 i 和 j
+      // i 去遍历新的索引值 ecd [0,1,2] j 去遍历 [1,2]
+      // 如果 i!=j 那么就是需要移动 
+
       // 新建一个定长数组(需要变动的长度) 性能是最好的 来确定新老之间索引关系 我们要查到最长递增的子序列 也就是索引值
       const newIndexToOldIndexMap = new Array(toBePatched)
       // 确定是否需要移动 只要后一个索引值小于前一个 就需要移动
@@ -208,6 +218,8 @@ export function createRenderer(options) {
         newIndexToOldIndexMap[i] = 0
       }
 
+      // 建立新节点的映射表
+      const keyToNewIndexMap = new Map()
       // 循环 e2
       for (let i = s2; i <= e2; i++) {
         const nextChild = c2[i];
@@ -263,7 +275,7 @@ export function createRenderer(options) {
       // 倒序的好处就是 能够确定稳定的位置
       // ecdf
       // cdef
-      // 如果是 从 f 开始就能确定 e 的位置
+      // 如果是从 f 开始就能确定 e 的位置
       // 从最后开始就能依次确定位置
       for (let i = toBePatched; i >= 0; i--) {
         const nextIndex = i + s2
@@ -288,7 +300,6 @@ export function createRenderer(options) {
       hostRemove(children[i].el)
     }
   }
-
 
   function patchProps(el, oldProps, newProps) {
     // 常见的有三种情况
@@ -475,7 +486,6 @@ function updateComponentPreRender(instance, nextVNode) {
   // 这里只是简单的赋值
   instance.props = nextVNode.props
 }
-
 
 function getSequence(arr) {
   const p = arr.slice();
