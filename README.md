@@ -2313,3 +2313,59 @@ function parseInterpolation(context) {
 }
 ```
 
+## 实现解析标签
+
+解析 `<div></div>` 标签，首先增加判断条件，通过正则表达式去判断输入的 context.source 值。
+
+```js
+function parseChildren(context) {
+  const nodes: any = []
+
+  let node
+  // 判断类型
+  if (context.source.startsWith('{{')) {
+    node = parseInterpolation(context)
+  } else if (/^<[a-z]*/i.test(context.source)) {
+    // 需要用正则表达判断
+    // <div></div>
+    // /^<[a-z]/i/ 以 ^ 开头第二个字符为 a-z 先默认小写 后面需支持大写
+    node = parseElement(context);
+  }
+
+  nodes.push(node)
+
+  return nodes
+}
+```
+
+解析标签，因为有头标签和尾标签，定义一个枚举变量，先解析头，解析完删除再解析尾，并且尾部标签不需要返回。
+
+```js
+function parseElement(context) {
+  // 解析标签
+  const element = parseTag(context, TagType.Start)
+
+  parseTag(context, TagType.End)
+
+  return element
+}
+```
+
+获取完值后要推进，让解析器往下走。
+
+```js
+function parseTag(context, type) {
+  // <div></div>
+  // 匹配解析
+  // 推进
+  const match: any = /^<\/?([a-z]*)/i.exec(context.source)
+  const tag = match[1]
+  advanceBy(context, match[0].length + 1)
+
+  if (type === TagType.End) return
+  return {
+    type: NodeTypes.ELEMENT,
+    tag
+  }
+}
+```
