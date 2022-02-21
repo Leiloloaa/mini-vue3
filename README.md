@@ -2369,3 +2369,61 @@ function parseTag(context, type) {
   }
 }
 ```
+
+## 实现解析 text 功能
+
+在解析 children 中新增判断，先默认最后一个为 Text。
+
+```js
+function parseChildren(context) {
+  const nodes: any = []
+
+  let node
+  // 重构 提取变量
+  const s = context.source;
+  // 判断类型
+  if (s.startsWith('{{')) {
+    node = parseInterpolation(context)
+  } else if (/^<[a-z]*/i.test(s)) {
+    // 需要用正则表达判断
+    // <div></div>
+    // /^<[a-z]/i/
+    node = parseElement(context);
+  } else {
+    // === 新增 ===
+    node = parseText(context)
+  }
+
+  nodes.push(node)
+
+  return nodes
+}
+```
+
+解析文本等于截取字符串
+
+```js
+function parseText(context) {
+  // 解析文本
+  const content = parseTextData(context, context.source.length)
+
+  return {
+    type: NodeTypes.TEXT,
+    content
+  }
+}
+```
+
+```js
+function parseTextData(context, length) {
+  const content = context.source.slice(0, length)
+
+  advanceBy(context, length)
+  return content
+}
+```
+
+**小结**
+
+- 按照某种方式获取到需要解析的东西
+- 推进，删除，然后再解析下一个

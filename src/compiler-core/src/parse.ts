@@ -1,3 +1,4 @@
+import { Text } from './../../runtime-core/vnode';
 import { NodeTypes } from "./ast";
 
 const enum TagType {
@@ -25,6 +26,8 @@ function parseChildren(context) {
     // <div></div>
     // /^<[a-z]/i/
     node = parseElement(context);
+  } else {
+    node = parseText(context)
   }
 
   nodes.push(node)
@@ -32,8 +35,26 @@ function parseChildren(context) {
   return nodes
 }
 
+function parseText(context) {
+  // 解析文本
+  const content = parseTextData(context, context.source.length)
+
+  return {
+    type: NodeTypes.TEXT,
+    content
+  }
+}
+
+function parseTextData(context, length) {
+  const content = context.source.slice(0, length)
+
+  advanceBy(context, length)
+  return content
+}
+
+
 function parseElement(context) {
-  // 解析 标签
+  // 解析标签
   const element = parseTag(context, TagType.Start)
 
   parseTag(context, TagType.End)
@@ -89,7 +110,7 @@ function parseInterpolation(context) {
 }
 
 // 推进模板字符
-function advanceBy(context: any, length: number) {
+function advanceBy(context: any, length: any) {
   context.source = context.source.slice(length);
 }
 
