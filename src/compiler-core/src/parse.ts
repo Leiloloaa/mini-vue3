@@ -7,7 +7,6 @@ const enum TagType {
 
 export function baseParse(content) {
   const context = createParserContent(content)
-
   return createRoot(parseChildren(context))
 }
 
@@ -22,11 +21,31 @@ function parseChildren(context) {
     // <div></div>
     // /^<[a-z]/i/
     node = parseElement(context);
+  } else {
+    // 文本
+    node = parseText(context)
   }
 
   nodes.push(node)
 
   return nodes
+}
+
+function parseText(context) {
+  // 解析文本
+  const content = parseTextData(context, context.source.length)
+
+  return {
+    type: NodeTypes.TEXT,
+    content
+  }
+}
+
+function parseTextData(context, length) {
+  const content = context.source.slice(0, length)
+
+  advanceBy(context, length)
+  return content
 }
 
 function parseElement(context) {
