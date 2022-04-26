@@ -1,5 +1,11 @@
+/*
+ * @Author: Stone
+ * @Date: 2022-04-25 17:19:47
+ * @LastEditors: Stone
+ * @LastEditTime: 2022-04-26 15:13:07
+ */
 // options 提供了更动态的传参方式
-export function transform(root, options) {
+export function transform(root, options = {}) {
     // 任务拆分
     // 1 遍历 - 深度优先遍历 和 广度优先遍历
     // 2 修改 test content
@@ -7,9 +13,11 @@ export function transform(root, options) {
     // 创建上下文本
     const context = createTransformConetext(root, options)
     traverseNode(root, context)
+
+    createRootCodegen(root)
 }
 
-function createTransformConetext(root: any, options: any) :any{
+function createTransformConetext(root: any, options: any): any {
     const context = {
         root,
         nodeTransforms: options.nodeTransforms || [] // 插件列表
@@ -36,3 +44,6 @@ function traverseChildren(node: any, context: any) {
     }
 }
 
+function createRootCodegen(root: any) {
+    root.codegenNode = root.children[0]
+}
