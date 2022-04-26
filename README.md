@@ -2435,3 +2435,76 @@ function parseTextData(context, length) {
 读取一组输入然后根据这些输入来更改为不同的状态
 
 ![](http://66.152.176.25:8000/home/images/artical/有限转态机.png)
+
+## 实现代码生成 string 类型
+
+![](http://66.152.176.25:8000/home/images/artical/codegenNode.png)
+
+**实现功能的步骤**
+
+1、先知道要达到的效果
+2、任务拆分实现
+3、优化提取代码
+
+对于一个字符串 hi，最终也是要生成一个 render 函数`export function render(_ctx, _cache, $props, $setup, $data, $options) { return "h1"}`,
+然后再 generate 一步一步的累加字符串直到达到目标。
+
+```js
+export function generate(ast) {
+    let code = ""
+    code += "return "
+    const functionName = "render"
+    const args = ["_ctx", "_cache"]
+    const signature = args.join(", ")
+
+    code += `function ${functionName}(${signature}){`
+    const node = ast.codegenNode
+    code += `return '${node.content}'`
+    code += "}"
+
+    return {
+        code
+    }
+}
+```
+
+**优化代码**
+
+多次使用 code+= 代码重复，提取出来，并且使用一个 context 上下文内容修改；
+
+```js
+export function generate(ast) {
+  const context = createCodegenContext();
+  const { push } = context;
+  push("return ");
+
+  const functionName = "render";
+  const args = ["_ctx", "_cache"];
+  const signature = args.join(", ");
+
+  push(`function ${functionName}(${signature}){`);
+  push("return ");
+  genNode(ast.codegenNode, context);
+  push("}");
+
+  return {
+    code: context.code,
+  };
+}
+
+function createCodegenContext(): any {
+  const context = {
+    code: "",
+    push(source) {
+      context.code += source;
+    },
+  };
+
+  return context
+}
+
+function genNode(node: any, context) {
+  const { push } = context;
+  push(`'${node.content}'`);
+}
+```
