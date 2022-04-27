@@ -52,10 +52,10 @@ function isEnd(context, ancestors) {
 function startsWithEndTagOpen(source, tag) {
     // 以左括号开头才有意义 并且 还需要转换为小写比较
     return (
-      source.startsWith("</") &&
-      source.slice(2, 2 + tag.length).toLowerCase() === tag.toLowerCase()
+        source.startsWith("</") &&
+        source.slice(2, 2 + tag.length).toLowerCase() === tag.toLowerCase()
     );
-  }
+}
 
 function parseText(context) {
     const endToken = ['{{', '</'] // 停止的条件 如果同时存在 那么这个 index 要尽量的靠左 去最小的
@@ -160,7 +160,7 @@ function advanceBy(context, length) {
 }
 
 function createRoot(children) {
-    return { children }
+    return { children, type: NodeTypes.ROOT }
 }
 
 function createParserContent(content) {

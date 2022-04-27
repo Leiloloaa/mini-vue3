@@ -1,0 +1,12 @@
+/*
+ * @Author: Stone
+ * @Date: 2022-04-27 14:24:20
+ * @LastEditors: Stone
+ * @LastEditTime: 2022-04-27 14:33:42
+ */
+export const TO_DISPLAY_STRING = Symbol('toDisplayString')
+
+// Symbol 定义的变量不可以遍历 所以转一下
+export const helperMapName = {
+    [TO_DISPLAY_STRING]: 'toDisplayString'
+}
