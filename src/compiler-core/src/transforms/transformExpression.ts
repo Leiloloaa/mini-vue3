@@ -4,7 +4,7 @@ import { NodeTypes } from "../ast"
  * @Author: Stone
  * @Date: 2022-04-27 14:52:31
  * @LastEditors: Stone
- * @LastEditTime: 2022-04-27 15:02:45
+ * @LastEditTime: 2022-04-27 16:28:23
  */
 export function transformExpression(node) {
     if (node.type === NodeTypes.INTERPOLATION) {
