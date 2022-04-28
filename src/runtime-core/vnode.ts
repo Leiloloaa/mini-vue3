@@ -1,45 +1,55 @@
-import { isArray, isObject, isString } from "../shared/index"
-import { ShapeFlags } from "../shared/shapeFlags"
+/*
+ * @Author: Stone
+ * @Date: 2022-04-24 19:41:18
+ * @LastEditors: Stone
+ * @LastEditTime: 2022-04-28 11:14:33
+ */
+import { isArray, isObject, isString } from "../shared/index";
+import { ShapeFlags } from "../shared/shapeFlags";
 
 export const Fragment = Symbol('Fragment');
 export const Text = Symbol('Text');
 
+export {
+    createVNode as createElementVNode
+}
+
 export function createVNode(type, props?, children?) {
-  const vnode = {
-    type,
-    props,
-    children,
-    component: null, // 保存当前的实例
-    key: props && props.key,
-    shapeFlag: getShapeFlag(type),
-    el: null
-  }
-
-  // children
-  if (isString(children)) {
-    // vnode.shapeFlag =   vnode.shapeFlag | ShapeFlags.TEXT_CHILDREN
-    // | 两位都为 0 才为 0
-    // 0100 | 0100 = 0100
-    vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN
-  } else if (isArray(children)) {
-    vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
-  }
-
-  // 组件类型 + children 是 object 就有 slot
-  if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-    if (isObject(children)) {
-      vnode.shapeFlag |= ShapeFlags.SLOT_CHILDREN
+    const vnode = {
+        type,
+        props,
+        children,
+        component: null, // 保存当前的实例
+        key: props && props.key,
+        shapeFlag: getShapeFlag(type),
+        el: null
     }
-  }
 
-  return vnode
+    // children
+    if (isString(children)) {
+        // vnode.shapeFlag =   vnode.shapeFlag | ShapeFlags.TEXT_CHILDREN
+        // | 两位都为 0 才为 0
+        // 0100 | 0100 = 0100
+        vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN
+    } else if (isArray(children)) {
+        vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+    }
+
+    // 组件类型 + children 是 object 就有 slot
+    if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        if (isObject(children)) {
+            vnode.shapeFlag |= ShapeFlags.SLOT_CHILDREN
+        }
+    }
+
+    return vnode
 }
 
 function getShapeFlag(type: any) {
-  // string -> div -> element
-  return isString(type) ? ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
+    // string -> div -> element
+    return isString(type) ? ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
 }
 
 export function createTextVNode(text: string) {
-  return createVNode(Text, {}, text)
+    return createVNode(Text, {}, text)
 }

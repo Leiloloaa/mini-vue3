@@ -2,7 +2,7 @@
  * @Author: Stone
  * @Date: 2022-04-26 14:57:19
  * @LastEditors: Stone
- * @LastEditTime: 2022-04-27 18:39:21
+ * @LastEditTime: 2022-04-28 09:59:49
  */
 import { generate } from "../src/codegen";
 import { baseParse } from "../src/parse";
@@ -23,29 +23,19 @@ describe("codegen", () => {
     it("interpolation", () => {
         const ast = baseParse("{{message}}");
         transform(ast, {
-            nodeTransforms: [transformExpression]
+          nodeTransforms: [transformExpression],
         });
         const { code } = generate(ast);
         expect(code).toMatchSnapshot();
-    });
-
-    it("element", () => {
-        const ast = baseParse("<div></div>");
+      });
+    
+      it("element", () => {
+        const ast: any = baseParse("<div>hi,{{message}}</div>");
         transform(ast, {
-            nodeTransforms: [transformElement]
+          nodeTransforms: [transformExpression,transformElement, transformText],
         });
+    
         const { code } = generate(ast);
         expect(code).toMatchSnapshot();
-    });
-
-    it("union", () => {
-        const ast:any = baseParse("<div>h1,{{message}}</div>");
-        transform(ast, {
-            nodeTransforms: [transformExpression, transformElement, transformText]
-        });
-        console.log('ast -----', ast);
-
-        const { code } = generate(ast);
-        expect(code).toMatchSnapshot();
-    });
+      });
 });

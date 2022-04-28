@@ -6,7 +6,7 @@ import { CREATE_ELEMENT_VNODE, helperMapName, TO_DISPLAY_STRING } from "./runtim
  * @Author: Stone
  * @Date: 2022-04-26 14:57:37
  * @LastEditors: Stone
- * @LastEditTime: 2022-04-27 18:40:49
+ * @LastEditTime: 2022-04-28 10:14:25
  */
 export function generate(ast) {
     // 实现功能的步骤
@@ -96,7 +96,7 @@ function genInterpolation(node: any, context: any) {
 
 function genExpression(node: any, context: any) {
     const { push } = context
-    push(`'${node.content}'`)
+    push(`${node.content}`)
 }
 
 function genElement(node, context) {

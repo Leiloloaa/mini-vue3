@@ -2,7 +2,7 @@
  * @Author: Stone
  * @Date: 2022-04-25 17:19:47
  * @LastEditors: Stone
- * @LastEditTime: 2022-04-27 18:37:21
+ * @LastEditTime: 2022-04-28 10:02:39
  */
 
 import { NodeTypes } from "./ast"
@@ -15,7 +15,7 @@ export function transform(root, options = {}) {
     // 2 修改 test content
 
     // 创建上下文本
-    const context = createTransformConetext(root, options)
+    const context = createTransformContext(root, options)
     traverseNode(root, context)
     createRootCodegen(root)
 
@@ -23,7 +23,7 @@ export function transform(root, options = {}) {
     console.log('root.helpers', root.helpers)
 }
 
-function createTransformConetext(root: any, options: any): any {
+function createTransformContext(root: any, options: any): any {
     const context = {
         root,
         nodeTransforms: options.nodeTransforms || [], // 插件列表
