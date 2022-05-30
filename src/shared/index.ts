@@ -6,6 +6,8 @@
  */
 export * from './toDisplayString';
 
+export const NOOP = () => { }
+
 export const extend = Object.assign;
 
 export const isObject = (value) => {
