@@ -41,6 +41,7 @@
 - [x] 支持最基础的 slots
 - [x] 支持 Text 类型节点
 - [x] 支持 $el api
+- [x] watch、watchEffect 的实现
 
 **runtime-dom**
 
