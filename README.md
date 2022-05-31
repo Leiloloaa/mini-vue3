@@ -456,6 +456,202 @@ export function computed(getter) {
 }
 ```
 
+
+
+### watch、watchEffect
+
+watch、watchEffect 都是 Vue3 中的侦听器，它可以非常方便的监听一个数据源的变化。
+
+**实现步骤 任务分解**
+
+- 收集依赖
+  - 收集 watch 中的第一个参数（ref、reactive、array、function等）
+- 相关的依赖发生了变化，要调用 cb（callback） 函数
+  - 利用 effect 的第二的参数 schedule 调度器
+
+> 源码中 watch 是进行了重载，但是和 watchEffect 一样，内部都是调用的 doWatch 函数。watch 是有特定的对象，而 watchEffect 是每次更新都会触发。
+
+**实现 watch**
+
+- watch 的第一个参数 source => 侦听对象
+- watch 的第二个参数 cb => 侦听对象发生改变后，执行的回调函数
+- watch 的第三个参数 options => 可选配置项
+  - immediate 创建的时候立即执行
+  - deep 深度监听，如果是 reactive 对象默认 deep 为 true
+  - flush 执行时机 
+    - pre 回调函数会在创建的时候立即执行一次 => 组件更新前
+    - post 会创建一个微任务，放到微任务队列中，异步执行 => 组件更新后
+    - sync 同步执行
+
+```js
+export interface WatchOptions {
+  immediate?: boolean;
+  deep?: boolean;
+  flush?: "pre" | "post" | "sync";
+}
+
+export function watch(source, cb, options: WatchOptions = {}) {
+  return doWatch(source as any, cb, options);
+}
+```
+
+**实现 watchEffect**
+
+watchEffect 是每次更新的时候调用，没有 cb
+
+```js
+export type WatchEffect = () => void;
+
+export function watchEffect(effect: WatchEffect, options?: WatchOptions) {
+  return doWatch(effect, null, (options = {}));
+}
+```
+
+**doWatch 要做的事情？**
+
+- 第一步
+  - 首先收集依赖是需要利用到 effect
+  - effect 的第一个参数是一个函数，而 watch 第一个参数可以是 ref、reactive 和 function
+  - 所以先处理 getter 函数
+- 第二步
+  - 因为是当依赖发生改变后，要触发 cb，所以 effect 中需要传入 schedule 调度器函数
+  - schedule 是要运行 job 函数，由于可以通过 flush 字段让调度器函数执行成同步或异步操作
+  - 所以先判断这个字段，如果不是 post 则是同步的
+- 第三步
+  - job 函数，如果 cb 存在用户调用的就是 watch，否则是 watchEffect
+  - 有 cb，newValue 就是 effect.run() 的值
+  - 无 cb，就直接运行 effect.run()
+- 第四步 => init
+  - 如果 cb && immediate 则立即执行
+  - 否则 oldValue 运行 effect.run()
+
+```js
+function doWatch(source, cb, { immediate, deep, flush }: WatchOptions) {
+  // source 可以是对象的值 或者 是函数 等
+  // 定义 getter 函数
+  let getter: () => any;
+  if (isRef(source)) {
+    getter = () => source.value;
+  } else if (isReactive(source)) {
+    // 如果是 reactive 类型
+    getter = () => source;
+    // 深度监听为 true
+    // 所以是对象的时候 都可以不用指定 deep
+    deep = true;
+  } else if (isArray(source)) {
+    // 如果是数组就需要 map 遍历
+    getter = () =>
+      source.map((s) => {
+        if (isRef(s)) {
+          return s.value;
+        } else if (isReactive(s)) {
+          return traverse(s);
+        } else if (isFunction(s)) {
+          return s;
+        }
+      });
+  } else if (isFunction(source)) {
+    getter = source;
+  } else {
+    getter = NOOP;
+  }
+
+  if (cb && deep) {
+    // 如果有回调函数并且深度监听为 true，那么就通过 traverse 函数进行深度递归监听
+    const baseGetter = getter;
+    getter = () => traverse(baseGetter());
+  }
+
+  // 定义旧值和新值
+  let oldValue;
+
+  // 提取 scheduler 调度函数为一个独立的 job 函数
+  const job = () => {
+    if (cb) {
+      // 如果有回调函数
+      // 执行effect.run获取新值
+      const newValue = effect.run();
+      if (deep) {
+        // 执行回调函数
+        // 第一次执行的时候，旧值是undefined，这是符合预期的
+        cb(newValue, oldValue);
+        // 把新值赋值给旧值
+        oldValue = newValue;
+      }
+    } else {
+      // 没有回调函数则是 watchEffect
+      effect.run();
+    }
+    // newValue = effect.run();
+    // 当数据变化时，调用回调函数 cb
+    // cb(newValue, oldValue);
+    // oldValue = newValue;
+  };
+
+  let scheduler;
+  if (flush === "post") {
+    scheduler = () => {
+      const p = Promise.resolve();
+      p.then(job);
+    };
+  } else {
+    // 如果是 'pre' 或者是 'sync'
+    scheduler = () => {
+      job();
+    };
+  }
+  const effect = new ReactiveEffect(getter, scheduler);
+
+  // traverse 递归地读取 source
+  // const effectFn = effect(() => getter(), {
+  //   // 除了可以使用 immediate 之外，还可以使用 flush 指定调度函数的执行时间
+  //   scheduler: () => {
+  //     // 在调度函数中判断 flush 是否为 post
+  //     // 如果是 将其放到微任务队列中执行（执行栈底）
+  //     if (flush === "post") {
+  //       const p = Promise.resolve();
+  //       p.then(job);
+  //     } else {
+  //       // 如果是 'pre' 或者是 'sync'
+  //       job();
+  //     }
+  //   },
+  // });
+
+  // options.immediate 为 true 回调函数会在 watch 创建的时候执行一次
+  // if (immediate) {
+  //   job();
+  // } else {
+  //   oldValue = effectFn();
+  // }
+  
+  // initial run
+  if (cb) {
+    if (immediate) {
+      job();
+    } else {
+      oldValue = effect.run();
+    }
+  } else {
+    oldValue = effect.run();
+  }
+}
+
+// 深拷贝
+function traverse(value, seen = new Set()) {
+  // 如果要读取的数据是原始值，或者已经被读取过了，那么就什么都别做
+  if (!isObject || value === null || seen.has(value)) return;
+  // 将数据添加到 seen 中，代表遍历读取过了，避免循环引用引起的死循环
+  seen.add(value);
+  // 暂时不考虑数组等其他结构
+  // 假设 value 就是一个对象，使用 forin 读取对象的每一个值，并递归的调用 traverse 进行处理
+  for (const k in value) {
+    traverse(value[k], seen);
+  }
+  return value;
+}
+```
+
 ## 实现 proxy 代理组件实例
 
 **目的**
