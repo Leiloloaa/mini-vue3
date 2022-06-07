@@ -1,7 +1,7 @@
 <!-- [EN](README.md) / [CN](README.md) -->
 # mini-vue3
 
-> 实现 Vue3 核心逻辑的最简模型，本项目参考 [mini-vue地址](https://github.com/cuixiaorui/mini-vue) 实现。
+> 实现 Vue3 核心逻辑的最简模型，本项目参考 [Vue3](https://github.com/vuejs/core) 、[mini-vue地址](https://github.com/cuixiaorui/mini-vue) 实现。
 
 ## Tasking
 
@@ -46,6 +46,10 @@
 **runtime-dom**
 
 - [x] 支持 custom renderer
+
+**vue**
+
+- [x] compileToFunction 函数
 
 ## Ending
 
