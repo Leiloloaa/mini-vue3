@@ -1,5 +1,9 @@
-import { isObject } from './../shared/index';
-import { mutableHandlers, readonlyHandlers, shallowReadonlyHandlers } from './baseHandlers';
+import { isObject } from "./../shared/index";
+import {
+  mutableHandlers,
+  readonlyHandlers,
+  shallowReadonlyHandlers,
+} from "./baseHandlers";
 
 export const reactiveMap = new WeakMap();
 export const readonlyMap = new WeakMap();
@@ -8,10 +12,15 @@ export const shallowReadonlyMap = new WeakMap();
 export const enum ReactiveFlags {
   IS_REACTIVE = "__v_isReactive",
   IS_READONLY = "__v_isReadonly",
-  RAW = "__v_raw"
-};
+  RAW = "__v_raw",
+}
 
 export function reactive(target) {
+  // 如果试图去观察一个只读的代理对象，会直接返回只读版本
+  // 这种情况对于的是 readonly 变量 再用 reactive 代理
+  if (isReadonly(target)){
+    return target;
+  }
   return createReactiveObject(target, reactiveMap, mutableHandlers);
 }
 
@@ -33,15 +42,15 @@ export function isReactive(value) {
   // 如果传过来的不是 proxy 值，所以就不会去调用 get 方法
   // 也没挂载 ReactiveFlags.IS_REACTIVE 属性 所以是 undefined
   // 使用 !! 转换成 boolean 值就可以了
-  return !!value[ReactiveFlags.IS_REACTIVE]
+  return !!value[ReactiveFlags.IS_REACTIVE];
 }
 
 export function isReadonly(value) {
-  return !!value[ReactiveFlags.IS_READONLY]
+  return !!value[ReactiveFlags.IS_READONLY];
 }
 
 export function isProxy(value) {
-  return isReactive(value) || isReadonly(value)
+  return isReactive(value) || isReadonly(value);
 }
 
 export function toRaw(value) {
@@ -60,7 +69,7 @@ export function toRaw(value) {
 
 function createReactiveObject(target, proxyMap, baseHandlers) {
   if (!isObject(target)) {
-    console.log('不是一个对象');
+    console.log("不是一个对象");
   }
   // 核心就是 proxy
   // 目的是可以侦听到用户 get 或者 set 的动作
